@@ -1,0 +1,62 @@
+---
+PROXY_CONFIG_FILE: $ENV{HOME}/.2chproxy.yml     #コンフィグファイル
+DEDICATED_BROWSER: JD                           #使用している専ブラの名前
+                                                #スクレイピング時にRangeを使う場合は必須
+DAT_DIRECTORY: $ENV{HOME}/.jd/                  #datファイルが置いてあるディレクトリ、最後の/はつけた方が良い
+                                                #datへのアクセスにRangeヘッダーがあった際に
+                                                #ローカルにあるdatへアクセスするのに必要
+LISTEN_HOST: localhost                          #listenするホスト、ipv4に強制するなら"127.0.0.1"
+LISTEN_PORT: 8080                               #listenするポート
+FORWARD_PROXY: ''                               #上位プロクシがあれば"http://host:port/"みたいに書く
+MAXIMUM_CONNECTIONS: 20                         #最大同時接続数
+USER_AGENT: Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0 #UA偽装
+
+ENABLE_WEB_SCRAPING: 1                           #datへのアクセスの際にWEBスクレイピングを有効にする
+                                                 #datへの直アクセスが禁止されない限りは有効にしない方がいい
+                                                 #0で無効、1で有効
+ENABLE_PARTIAL_CONTENT: 1                        #ENABLE_WEB_SCRAPINGが有効な状態で
+                                                 #datへのアクセスにRnageヘッダーが含まれていた場合に
+                                                 #206で応答するようにする(EXPERIMENTAL)
+                                                 #0で無効、1で有効
+
+ENABLE_MEMORY_CACHE: 1                           #メモリ上でdatの取得したサイズ、最新のレスの番号と内容をキャッシュする(EXPERIMENTAL)
+TIMEOUT: 9                                       #接続のタイムアウト値
+                                                 #専ブラのタイムアウト値より小さい値にした方が良い
+DISABLE_TE_HEADER: 1                             #If-Modified-Sinceヘッダーのない要求がプロクシに来た場合に
+                                                 #TEヘッダーが付加されるのを止めるかどうか
+                                                 #0で無効、1で有効
+ENABLE_SSL_CONNECTION: 1                         #https通信を有効にする、動くには動くが
+                                                 #しっかりした処理ではないので通信内容が壊れるかもしれない
+                                                 #0で無効、1で有効
+TCP_CONNECTION_BUFFER: 8192                      #tcpレベルで通信する時のバッファーの最大bytes数
+KEEP_COOKIE: 1                                   #このプロクシで*.2ch.net、*.bbspink.comのcookieを保持するかどうかのフラグ
+UNIQ_COOKIE: 0                                   #KEEP_COOKIEが有効になっている状態で
+                                                 #書き込み毎にcookieを変えたい場合はこれを有効にする
+                                                 #0で無効、1で有効
+HANDLED_COOKIES:                                 #プロクシで保持するクッキー
+  - __cfduid
+  - yuki
+  - PREN
+
+#datへのアクセスかを判定する正規表現
+DAT_URL: '^http://([\w]+)(\.2ch\.net|\.bbspink\.com)(:[\d]+)?/([\w]+)/(?:dat|kako/\d+(?:/\d+)?)/([\d]+)\.dat(\.gz)?$'
+
+NULL_DEVICE: /dev/null                           #nullデバイスの場所
+PID_FILE_NAME: /tmp/2chproxy.pid                 #pidが書かれたファイル、2重起動禁止にも用いている
+LOG_FILE_NAME: /tmp/2chproxy.log                 #ログファイル
+
+NULL_DEVICE_WIN32: nul                           #nullデバイスの場所(Windows)
+PID_FILE_NAME_WIN32: dirname($0)./2chproxy.pid   #pidが書かれたファイル、2重起動禁止にも用いている(Windows)
+LOG_FILE_NAME_WIN32: dirname($0)./2chproxy.log   #ログファイル(Windows)
+
+LOG_LEVEL: 5                                     #ログ出力の閾
+
+#以下WEBスクレイピングの際の正規表現
+TITLE_REGEX: '^<title>(.*)</title>$'             #タイトル抽出
+#                       1.レス番                         2.目欄             3.名前/ハッシュ           4.日付|ID                 5.BE1           6.BE2          7.本文
+RESPONSE_REGEX: '^<dt>(\d+)\s[^<]*<(?:a href="mailto:([^"]+)"|font[^>]*)><b>(.*?)</b></(?:a|font)>.([^<]+?(?:<a href="http://[^"]+">.+</a>)?[^<]+?)\s?(?:(?:<a .+?/a>\s)?<a [^>]*be\(([^\)]+)\)[^>]*>\?([^<]+)</a>)?<dd>(.+)'
+
+
+
+
+
