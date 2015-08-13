@@ -4,11 +4,11 @@
 
 ubuntuのケース。
 
-## 事前に必要なパッケージを導入。
+### 事前に必要なパッケージを導入。
 
 `  sudo apt-get install git  libhttp-daemon-perl libhttp-daemon-perl`
 
-## インストール
+### インストール
 
 `  git clone https://github.com/yama-natuki/2chproxy.pl.git`
 
