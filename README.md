@@ -24,7 +24,7 @@ ubuntu14.04LTS の場合。
 　使う場合は、
 
 `
-    PROXY="$HOME/bin/2chproxy.pl"
+    PROXY="$HOME/bin/2chproxy.pl"  
     JD="/usr/bin/jd"
 `
 
