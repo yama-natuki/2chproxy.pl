@@ -3,13 +3,8 @@
 #Copyright (c) 2015 ◆okL.s3zZY5iC
 #This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
-#v0.17.2からの変更点
-# 新しいread.cgiに仮対応
-# keep-aliveな通信が出来ていなかった気がするので修正
-# --config fileでコマンドラインでコンフィグファイルを指定出来るように
-# ほか色々弄ったのでread.cgiに対応したいだけの場合は
-#   html2dat内とTITLE_REGEX,RESPONSE_REGEX,RESPONSE_REGEX2の値を
-#   前のものにコピペすれば動くかもしれない
+#v1.0からの変更点
+# HTTP/1.0な通信でレスポンスが壊れる場合があったのを修正
 # きっと増えているバグ
 
 #注意事項
@@ -191,6 +186,10 @@ sub initialize_global_var() {
   else {
     push(@LWP::Protocol::http::EXTRA_SOCK_OPTS, SendTE => 1);
   }
+  #keep-alive時に
+  push(@LWP::Protocol::http::EXTRA_SOCK_OPTS, KeepAlive => 1);
+  push(@LWP::Protocol::http::EXTRA_SOCK_OPTS, HTTPVersion => '1.1');
+  push(@LWP::Protocol::http::EXTRA_SOCK_OPTS, PeerHTTPVersion => '1.1');
   #セマフォの設定
   $semaphore  = Thread::Semaphore->new($PROXY_CONFIG->{MAXIMUM_CONNECTIONS});
 }
@@ -737,6 +736,7 @@ sub ssl_connection() {
 sub connection() {
   my $client  = shift;
   my $user_agent = LWP::UserAgent->new(keep_alive => 1);
+  my $keep_alive  = 1;
   my $conn_cache;
   eval {
     require LWP::ConnCache;
@@ -760,7 +760,7 @@ sub connection() {
   #&print_log(LOG_INFO, 'PROXY', "start connection.\n");
 
   REQUEST_LOOP:
-  while ((my $request  = $client->get_request())) {
+  while ($keep_alive && (my $request  = $client->get_request())) {
     #接続先の表示
     &print_log(LOG_INFO, 'HTTP', $client->sockhost." | ".$request->method." ".$request->uri->as_string()."\n");
     my $uri = $request->uri;
@@ -770,13 +770,6 @@ sub connection() {
       $dport  = $uri->port;
       &print_log(LOG_INFO, 'HTTP', "destination port is ".$dport."\n");
     };
-
-    #HTTPのバージョンでConnectionヘッダーをKeep-Aliveかkeep-aliveか分ける
-    if ($request->protocol =~ m|^HTTP/(\d+\.\d+)$|) {
-      my $http_version  = $1;
-      &print_log(LOG_DEBUG, 'HTTP', "HTTP version: ".$http_version."\n");
-      push(@LWP::Protocol::http::EXTRA_SOCK_OPTS, PeerHTTPVersion => $http_version);
-    }
 
     #443ポートへのCONNECTのみhttps通信として取り扱う
     if ($request->method eq 'CONNECT') {
@@ -798,6 +791,17 @@ sub connection() {
         $client->send_response($response);
       }
       last;
+    }
+
+    foreach my $connection_header ($request->header('Connection')) {
+      $request->remove_header($connection_header);
+    }
+
+    my $client_protocol = $request->protocol();
+    if ($client_protocol lt 'HTTP/1.1' ||
+        $request->header('Connection') ne 'keep-alive' ||
+        !$conn_cache) {
+      $keep_alive = 0;
     }
 
     my $orig_request = $request->clone; #
@@ -841,6 +845,20 @@ sub connection() {
       next REQUEST_LOOP;
     }
 
+    if ($client_protocol lt 'HTTP/1.1') {
+      &print_log(LOG_INFO, 'PROXY', $client_protocol." -> HTTP/1.1\n");
+      $request->protocol('HTTP/1.1');
+      $request->header('Connection' => 'keep-alive');
+      if (!$request->header('Host')) {
+        eval {
+          $request->header('Host' => $request->uri->host());
+        };
+      }
+    }
+    if (!$keep_alive) {
+      $request->header('Connection' => 'close');
+    }
+
     my $response;
     if ($before_send_response) {
       $response = $user_agent->simple_request($request);
@@ -867,19 +885,29 @@ sub connection() {
             #Client-Transfer-Encodingがヘッダーに存在する場合は
             #クライアントにchunked形式で返す
             if (defined($res->remove_header('Client-Transfer-Encoding'))) {
-              &print_log(LOG_INFO, 'HTTP', "chunked detected, content return as chunked\n");
               $res->header('Transfer-Encoding' => 'chunked');
             }
-            if ($res->header('Transfer-Encoding' => 'chunked')) {
-              if (defined($res->header('Content-Length'))) {
+            if ($res->header('Transfer-Encoding') eq 'chunked') {
+              #HTTP/1.1以前ではTransfer-Encodingは無い
+              if ($client_protocol lt 'HTTP/1.1') {
                 $res->remove_header('Transfer-Encoding');
+                $res->header('Connection' => 'close');
               }
               else {
+                &print_log(LOG_INFO, 'HTTP', "chunked detected, content return as chunked\n");
+                $res->remove_header('Content-Length');
                 $chunked = 1;
               }
             }
             else {
               &print_log(LOG_INFO, 'HTTP', "Content-Length: ".($res->header('Content-Length') // "0(null)")."\n");
+            }
+            #
+            if (!$keep_alive ||
+                $res->header('Connection') ne 'keep-alive' ||
+                $res->protocol ne 'HTTP/1.1') {
+              $res->header('Connection' => 'close');
+              $keep_alive = 0;
             }
             #Client-*なヘッダーを削除
             #特にClient-Transfer-Encodingは必ず削除する
@@ -918,6 +946,13 @@ sub connection() {
         #上のコールバックが呼ばれない->コールバック内でヘッダー周りを処理出来ていないのとほぼ同等なので
         #シンプルなこちらを分岐に使う
         if (!$sent_headers) {
+          #
+          if (!$keep_alive ||
+              $response->header('Connection') ne 'keep-alive' ||
+              $response->protocol ne 'HTTP/1.1') {
+            $response->header('Connection' => 'close');
+            $keep_alive = 0;
+          }
           $client->send_response($response);
         }
       }
@@ -942,6 +977,12 @@ sub connection() {
     }
 
     if ($before_send_response) {
+      if (!$keep_alive ||
+          $response->header('Connection') ne 'keep-alive' ||
+          $response->protocol ne 'HTTP/1.1') {
+        $response->header('Connection' => 'close');
+        $keep_alive = 0;
+      }
       $client->send_response($response);
     }
   }
@@ -1301,13 +1342,11 @@ sub scraping_2ch_response() {
     #urlが.dat.gzだった場合はレスポンスの本体をgzipに圧縮する
     #Content-Typeをapplication/gzipにすることを忘れずに
     #過去ログはRangeが送られてこないはずなので処理部分はここだけでよいはず
-    elsif ($is_gzip) {
+    elsif ($is_gzip && !$PROXY_CONFIG->{DISABLE_GZIP_COMPRESS}) {
       my $tmp;
       if (gzip \$content => \$tmp) {
-        if (!$PROXY_CONFIG->{DISABLE_GZIP_COMPRESS}) {
-          $content  = $tmp;
-          $response->header('Content-Type' => 'application/gzip');
-        }
+        $content  = $tmp;
+        $response->header('Content-Type' => 'application/gzip');
       }
       #gzip圧縮に失敗した場合は500を返す
       else {
@@ -1563,13 +1602,14 @@ sub initialize() {
 #     2回目以降クライアントとうまく通信出来ていなかった気がするのを修正
 #   一応start-stop-daemonで使えることを確認
 #   URLの追加とか個人的に弄りやすいようにした
+#v1.0.1
+# HTTP/1.0な通信でレスポンスが壊れる場合があったのを修正
+# 条件式の細々した修正
 
 #自分が把握しているバグっぽいもの
-#全般
-#   時折chunkedに失敗する気がする
 #rep2
 #   書き込み後にStatus: 302 Foundという文字列が表示されてしまう
-#   まちBBSのスレがうまく読み込めない?
+#   したらば/まちBBSのスレがうまく読み込めない?
 
 #
 #   ローカルのdatファイルのパスをリストで取得するようにするかもしれない
