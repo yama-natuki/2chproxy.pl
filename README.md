@@ -6,7 +6,7 @@ ubuntu14.04LTS の場合。
 
 ### 事前に必要なパッケージを導入。
 
-`  sudo apt-get install git  libhttp-daemon-perl libhttp-daemon-perl`
+`  sudo apt-get install git  libhttp-daemon-perl liblwp-protocol-https-perl`
 
 ### インストール
 
