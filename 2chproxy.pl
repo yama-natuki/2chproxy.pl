@@ -101,6 +101,7 @@ my $PROXY_CONFIG  = {
   #                       1.レス番                        2.目欄           3.名前/ハッシュ                4.1.日付                       4.2.SE1                       4.3.ID     4.4 <0000>                               5.BE1           6.BE2          7.本文
   RESPONSE_REGEX => '<dt>(\d+)\s[^<]*<(?:a href="mailto:([^"]+)"|font[^>]*)><b>(.*?)</b></(?:a|font)>.((?:[^<]+?)(?:\s*<a href="?http[^">]*"?[^>]*>[^<]*</a>)?(?:\s*(?:[^<]+?(?:(?:<\d+>)+[^<]*)?))?)?\s*(?:<a\s[^>]*be\(([^)]*)\)[^>]*>\?([^<]+)</a>)?<dd>([^\n]+)',
   RESPONSE_REGEX2 => '<div class="number">(\d+)[^>]*</div><div class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></div><div class="date">([^<]+)</div>(?:<div class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></div>)?<div class="message">(.*?)</div>',
+  RESPONSE_REGEX3 => '<span class="number">(\d+)[^>]*</span><span class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></span><span class="date">([^<]+)</span>(?:<span class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></span>)?</dt><dd class="thread_in">(.*?)</dd>',
   #WEBスクレイピングの細かい部分の正規表現は下の方
 };
 
@@ -404,7 +405,14 @@ sub html2dat() {
   elsif ($html =~ m|$PROXY_CONFIG->{TITLE_REGEX}|s) {
     $title  = $1;
     chomp($title);
-    while ($html =~ m@$PROXY_CONFIG->{RESPONSE_REGEX2}@gs) {
+    my $post_reg;
+    if ($html =~ m|<link\shref="http://[^.]+\.bbspink\.com|) {
+      $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX3};
+    }
+    else {
+      $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX2};
+    }
+    while ($html =~ m@$post_reg@gs) {
       my $line;
       my $res_number = $1+0;
       my $email      = $2 // '';
