@@ -406,7 +406,7 @@ sub html2dat() {
     $title  = $1;
     chomp($title);
     my $post_reg;
-    if ($html =~ m|<link\shref="(https?:)?//[^.]+\.bbspink\.com|) {
+    if ($html =~ m|<base\shref="(https?:)?//[^.]+\.bbspink\.com|) {
       $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX3};
     }
     else {
