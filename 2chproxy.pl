@@ -55,7 +55,7 @@ my $PROXY_CONFIG  = {
   LISTEN_PORT => 8080,                                #listenするポート
   FORWARD_PROXY => '',                                #上位プロクシがあれば"http://host:port/"みたいに書く
   MAXIMUM_CONNECTIONS => 20,                          #最大同時接続数
-  USER_AGENT => 'Mozilla/5.0 (X11; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0',
+  USER_AGENT => 'Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0',
   #USER_AGENT => '',
                                                       #UA偽装
   ENABLE_WEB_SCRAPING => 1,                           #datへのアクセスの際にWEBスクレイピングを有効にする
