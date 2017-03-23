@@ -440,7 +440,7 @@ sub html2dat() {
       }
       &print_log(LOG_DEBUG, 'HTML2DAT', $line."\n");
       while ($num_expected != 0 && $num_expected < $res_number) {
-        push(@dat, "うふーん<>うふーん<>うふーん<>うふーん<>");
+        push(@dat, "うふーん<>うふーん<>うふーん ID:DELETED<>うふーん<>");
         $num_expected ++;
       }
 	  push(@dat, $line);
