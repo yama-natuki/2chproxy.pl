@@ -360,6 +360,7 @@ sub add_handler() {
 
 sub html2dat() {
   my $html  = shift;
+  my $num_expected = shift;
   my $title = '';
   my @dat;
   my $res_del_tail_br = '<br><br>';                                     #末尾の<br> <br>を消す
@@ -438,7 +439,12 @@ sub html2dat() {
         $line .= $title;
       }
       &print_log(LOG_DEBUG, 'HTML2DAT', $line."\n");
-      push(@dat, $line);
+      while ($num_expected != 0 && $num_expected < $res_number) {
+        push(@dat, "うふーん<>うふーん<>うふーん<>うふーん<>");
+        $num_expected ++;
+      }
+	  push(@dat, $line);
+	  $num_expected = $res_number + 1;
     }
   }
 
@@ -1199,7 +1205,7 @@ sub scraping_2ch_response() {
     $charset  = 'Guess';
   }
   &print_log(LOG_INFO, 'SCRAPING', "charset: ".$charset."\n");
-  my @content_array  = &html2dat($response->decoded_content(charset => $charset));
+  my @content_array  = &html2dat($response->decoded_content(charset => $charset), $last_res);
   &print_log(LOG_INFO, 'SCRAPING', "size of content_array: ".($#content_array+1)."\n");
 
   #chunkedは消毒だー
