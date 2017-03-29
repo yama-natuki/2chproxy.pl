@@ -1205,7 +1205,11 @@ sub scraping_2ch_response() {
     $charset  = 'Guess';
   }
   &print_log(LOG_INFO, 'SCRAPING', "charset: ".$charset."\n");
-  my @content_array  = &html2dat($response->decoded_content(charset => $charset), $last_res);
+  my $last_num = 0;
+  if ($response->request()->uri() =~ m@/(\d+)-n$@) {
+    $last_num = $1 + 0;
+  }
+  my @content_array  = &html2dat($response->decoded_content(charset => $charset), $last_num);
   &print_log(LOG_INFO, 'SCRAPING', "size of content_array: ".($#content_array+1)."\n");
 
   #chunkedは消毒だー
