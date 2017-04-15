@@ -76,7 +76,7 @@ my $PROXY_CONFIG  = {
   DISABLE_TE_HEADER => 1,                             #If-Modified-Sinceヘッダーのない要求がプロクシに来た場合に
                                                       #TEヘッダーが付加されるのを止めるかどうか
                                                       #0で無効、1で有効
-  ENABLE_SSL_CONNECTION => 1,                         #https通信を有効にする、動くには動くが
+  ENABLE_SSL_CONNECTION => 0,                         #https通信を有効にする、動くには動くが
                                                       #しっかりした処理ではないので通信内容が壊れるかもしれない
                                                       #0で無効、1で有効
   TCP_CONNECTION_BUFFER => 8192,                      #https通信時のバッファーの最大bytes数
@@ -88,7 +88,7 @@ my $PROXY_CONFIG  = {
                                                       #書き込み毎にcookieを変えたい場合はこれを有効にする
                                                       #0で無効、1で有効
   HANDLED_COOKIES => [qw(__cfduid yuki PREN)],        #KEEP_COOKIEが有効な時にプロクシで保持するクッキー
-  DAT_URL => '^http://([\w]+)(\.2ch\.net|\.bbspink\.com)(:[\d]+)?/([\w]+)/(?:dat|kako/\d+(?:/\d+)?)/([\d]+(?:-[\d]+)?)\.dat(\.gz)?$',  #datへのアクセスかを判定する正規表現
+  DAT_URL => '^https?://([\w]+)(\.2ch\.net|\.bbspink\.com)(:[\d]+)?/([\w]+)/(?:dat|kako/\d+(?:/\d+)?)/([\d]+(?:-[\d]+)?)\.dat(\.gz)?$',  #datへのアクセスかを判定する正規表現
   NULL_DEVICE => '/dev/null',                         #nullデバイスの場所
   PID_FILE_NAME => "/tmp/2chproxy.pid",               #pidが書かれたファイル、2重起動禁止にも用いている
   LOG_FILE_NAME => "/tmp/2chproxy.log",               #ログファイル
@@ -1116,7 +1116,7 @@ sub scraping_2ch_request() {
     $is_gzip  = $6;
 
     $hash_key  = $domain.$category.$dat;
-    $rewrite_uri  = "http://".$host.$domain."/test/read.cgi/".$category."/".$dat."/";
+    $rewrite_uri = $uri->scheme()."://".$host.$domain."/test/read.cgi/".$category."/".$dat."/";
   }
   else {
     my $response  = HTTP::Response->new(500, 'Invalid URL');
