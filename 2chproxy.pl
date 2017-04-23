@@ -411,7 +411,7 @@ sub html2dat() {
     if ($html =~ m|<base\shref="(https?:)?//[^.]+\.bbspink\.com|) {
       $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX3};
     }
-    elsif ($html =~ m|<base\shref="(https?:)?//agree\.2ch\.net|) {
+    elsif ($html =~ m|</h1><div class="pagestats"|) { # for read.cgi 7.0
       $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX4};
     }
     else {
