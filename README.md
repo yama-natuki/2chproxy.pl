@@ -4,13 +4,19 @@
 
 ubuntu14.04LTS の場合。
 
-### 事前に必要なパッケージを導入。
+## 事前に必要なパッケージを導入。
 
 `  sudo apt-get install git  libhttp-daemon-perl liblwp-protocol-https-perl`
 
-### インストール
+## インストール
 
 `  git clone https://github.com/yama-natuki/2chproxy.pl.git`
+
+　次回からは、
+
+`  git pull`
+
+するだけで更新できます。
 
 # 設定
 
@@ -18,7 +24,9 @@ ubuntu14.04LTS の場合。
 
 # 起動方法
 
-　_2chproxy.pl_ というディレクトリが作成されるので、その中の **2chproxy.pl** を直接起動させるもよし、_~/bin/_ 等にコピーして使うもよし。
+　_2chproxy.pl_ というディレクトリが作成されるので、その中の **2chproxy.pl** を直接起動させるか、_~/bin/_ 等にコピーして使う。
+
+## jd.2h
 
 　同梱の **jd.sh** はJDを起動する前に **2chproxy.pl** を起動させるシェルスクリプト。
 
@@ -30,6 +38,19 @@ ubuntu14.04LTS の場合。
 ```
 
 の二つを自分の環境に合わせて変更。
+
+## jd.desktop
+
+　同梱の **jd.desktop** はGUIからJDを起動する前に **2chproxy.pl** を起動させるデスクトップエントリ。
+
+　使う場合は、**jd.desktop** ファイルを _~/.local/share/applications/_ に コピーする。
+
+　**2chproxy.pl** を入れた場所を変更した場合は、
+
+`  Exec=$HOME/2chproxy.pl/jd.sh`
+
+の行を変更する。
+
 
 # JDの設定
 
