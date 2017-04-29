@@ -121,7 +121,7 @@ my $null_device_name;
 my $pid_file_name;
 my $log_file_name;
 my $charcode;
-my ($config_file_name, $is_daemon, $show_help, $kill_process, $show_settings, $print_verbose);
+my ($config_file_name, $is_daemon, $show_help, $kill_process, $show_settings, $print_verbose, $print_version);
 my $dedicated_browser;
 my $dat_directory;
 my $enable_guess_encoding;
@@ -130,6 +130,7 @@ my %mem_cache :shared;
 my $semaphore;
 my $tcp_connection_buffer;
 my @handlers;
+my $ver_number = "V1.0.1-170429";
 
 #
 sub config_error_check() {
@@ -211,6 +212,14 @@ sub print_log() {
   }
 }
 
+#version
+sub version() {
+  print encode($charcode,
+        "2chproxy.pl ". $ver_number. " (c) 2015 ◆okL.s3zZY5iC \n"
+			  );
+  exit 0;
+}
+
 #help
 sub help() {
   print encode($charcode,
@@ -230,6 +239,8 @@ sub help() {
         "\t\t\tいちいちターミナルを開きっぱなしにしなくていい。\n".
         "\t\t-h|--help\n".
         "\t\t\tこのテキストを表示する。\n".
+        "\t\t-V|--version\n".
+        "\t\t\t現在のバージョンを表示する。\n".
         "\t\t-k|--kill\n".
         "\t\t\tすでに起動している2chproxyを終了させる。\n".
         "\t\t\t2chproxy --daemonと書いてあるシェルスクリプトと\n".
@@ -253,7 +264,8 @@ sub getopt() {
     "help|h" => \$show_help,
     "kill|k" => \$kill_process,
     "settings|s" => \$show_settings,
-    "verbose|v" => \$print_verbose
+    "verbose|v" => \$print_verbose,
+    "version|V"   => \$print_version
   );
 }
 
@@ -1521,6 +1533,10 @@ sub initialize() {
   if ($show_help) {
     &help();
     exit 0;
+  }
+  elsif ($print_version) {
+   &version();
+   exit 0;
   }
   elsif ($show_settings) {
     &print_settings();
