@@ -7,6 +7,7 @@
 　APIでスレ取得ができない2ch専用ブラウザのためのhtml→dat変換フロントエンドです。  
 　proxyとして動作し、JD、navi2ch、rep2 等に対応しています。
 
+
 # 導入方法
 
 ubuntu14.04LTS の場合。
@@ -28,6 +29,21 @@ ubuntu14.04LTS の場合。
 # 設定
 
  2chproxy.pl 内を参照。
+
+## コンフィグファイルで設定する
+
+　設定を別ファイルに記述しておく事ができます。別にしておけば 2chproxy.pl を更新するたびに
+設定をやり直さなくて済みます。
+
+　記述の仕方は [YAML形式](https://ja.wikipedia.org/wiki/YAML) で記述していきます。
+同梱の sample.yml を参照してください。
+
+　使用する場合は、
+
+`  ./2chproxy.pl --config ~/.2chproxy.yml`
+
+などとして設定ファイルの場所を指定して起動します。
+
 
 # 起動方法
 
