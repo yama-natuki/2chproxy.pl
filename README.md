@@ -1,4 +1,11 @@
+2chproxy.pl
+===============================
 
+2chproxy.plとは？
+-------------------------------
+
+　APIでスレ取得ができない2ch専用ブラウザのためのhtml→dat変換フロントエンドです。  
+　proxyとして動作し、JD、navi2ch、rep2 等に対応しています。
 
 # 導入方法
 
@@ -12,11 +19,11 @@ ubuntu14.04LTS の場合。
 
 `  git clone https://github.com/yama-natuki/2chproxy.pl.git`
 
-　次回からは、
+　次回からは、_2chproxy.pl/_ の中で
 
 `  git pull`
 
-するだけで更新できます。
+すれば更新されます。
 
 # 設定
 
