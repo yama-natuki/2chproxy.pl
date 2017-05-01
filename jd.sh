@@ -8,6 +8,8 @@
 PROXY="$HOME/bin/2chproxy.pl"
 # JDの場所
 JD="/usr/bin/jd"
+# 設定ファイルの場所。使わなければ放置で。
+CONFIG="$HOME/.2chproxy.yml"
 
 if [  -f ${PROXY} ]; then
 	if [ ! -x ${PROXY} ]; then
@@ -21,10 +23,15 @@ fi
 
 pgrep 2chproxy.pl
 if [ $? -ne 0 ]; then
-	${PROXY} --daemon;
+	if [ -e ${CONFIG} ]; then
+		${PROXY} --daemon --config ${CONFIG};
+	else
+		${PROXY} --daemon;
+	fi
 	$JD;
 	${PROXY} --kill;
 else
 	$JD;
 	${PROXY} --kill;
 fi
+
