@@ -1,5 +1,5 @@
 #!/bin/sh
-# last updated : 2015/03/16 01:20:30 JST
+# last updated : 2017/05/01 12:26:55 JST
 #
 # 2chproxy.pl を起動してからJDを起動する。
 #
