@@ -439,9 +439,9 @@ sub html2dat() {
       my $be2        = $7 // '';
       my $content    = $8 // '';
       &print_log(LOG_DEBUG, 'HTML2DAT', "res_number: ".$res_number."\n");
-      $content =~ s|$res_del_tail_br||g;
-      $content =~ s|$res_del_a|$1|g;
-      $content =~ s|$res_del_img|sssp://$1|g;
+      $content    =~ s|$res_del_tail_br||g;
+      $content    =~ s|$res_del_a|$1|g;
+      $content    =~ s|$res_del_img|sssp://$1|g;
       $date_se_id =~ s|</span><span[^>]*>| |g;
       if ($PROXY_CONFIG->{ENABLE_REPLACE_IMAGE_TO_LINK}) {
         $content =~ s|$res_replace_oekaki2link|[お絵かき] $1|g;
