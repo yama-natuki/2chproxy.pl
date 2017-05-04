@@ -130,7 +130,7 @@ my %mem_cache :shared;
 my $semaphore;
 my $tcp_connection_buffer;
 my @handlers;
-my $ver_number = "V1.0.1-170429";
+my $ver_number = "V1.0.1-170504";
 
 #
 sub config_error_check() {
