@@ -102,7 +102,7 @@ my $PROXY_CONFIG  = {
   RESPONSE_REGEX => '<dt>(\d+)\s[^<]*<(?:a href="mailto:([^"]+)"|font[^>]*)><b>(.*?)</b></(?:a|font)>.((?:[^<]+?)(?:\s*<a href="?http[^">]*"?[^>]*>[^<]*</a>)?(?:\s*(?:[^<]+?(?:(?:<\d+>)+[^<]*)?))?)?\s*(?:<a\s[^>]*be\(([^)]*)\)[^>]*>\?([^<]+)</a>)?<dd>([^\n]+)',
   RESPONSE_REGEX2 => '<div class="number">(\d+)[^>]*</div><div class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></div><div class="date">([^<]+)</div>(?:<div class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></div>)?<div class="message">(.*?)</div>',
   RESPONSE_REGEX3 => '<span class="number">(\d+)[^>]*</span><span class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></span><span class="date">([^<]+)</span>(?:<span class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></span>)?</dt><dd class="thread_in">(.*?)</dd>',
-  RESPONSE_REGEX4 => '<span class="number">(\d+)[^>]*</span><span class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></span><span class="date">([^<]+)</span>(?:<span class="uid">[^<]*</span>)?(?:<span class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></span>)?</div><div class="message"><span class="escaped">(.*?)</span></div>',
+  RESPONSE_REGEX4 => '<span class="number">(\d+)[^>]*</span><span class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></span><span class="date">(.+?)</span>(?:<span class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></span>)?</div><div class="message"><span class="escaped">(.*?)</span></div>',
   #WEBスクレイピングの細かい部分の正規表現は下の方
 };
 
@@ -442,6 +442,7 @@ sub html2dat() {
       $content =~ s|$res_del_tail_br||g;
       $content =~ s|$res_del_a|$1|g;
       $content =~ s|$res_del_img|sssp://$1|g;
+      $date_se_id =~ s|</span><span[^>]*>| |g;
       if ($PROXY_CONFIG->{ENABLE_REPLACE_IMAGE_TO_LINK}) {
         $content =~ s|$res_replace_oekaki2link|[お絵かき] $1|g;
       }
