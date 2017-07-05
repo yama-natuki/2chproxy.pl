@@ -19,19 +19,6 @@ cookie_hap="__cfduid=d;yuki=akari"
 # BBSPINKのクッキー
 cookie_hap_bbspink="__cfduid=d;yuki=akari"
 
-# proxy port
-PORT=$(cat ${base_dir}/2chproxy.pl | sed -n '/^  LISTEN_PORT.*/s/^  LISTEN_PORT => \([0-9]\+\).*/\1/p')
-
-# proxy
-# 2ch読み込み用proxyを使用する
-use_proxy_for2ch="1"
-proxy_for2ch="127.0.0.1"
-proxy_port_for2ch=$PORT
-# 2ch書き込み用proxyを使用する
-use_proxy_for2ch_w="1"
-proxy_for2ch_w="127.0.0.1"
-proxy_port_for2ch_w=$PORT
-
 #----------------------------------
 
 
@@ -71,6 +58,17 @@ cat ${base_dir}/jd.desktop | sed -e "s|^Exec=.*$|Exec=${bin_dir}\/jd.sh|" \
 #
 # change jd.conf
 #
+
+# proxy port
+PORT=$(cat ${base_dir}/2chproxy.pl | sed -n '/^  LISTEN_PORT.*/s/^  LISTEN_PORT => \([0-9]\+\).*/\1/p')
+
+# proxy
+use_proxy_for2ch="1"
+proxy_for2ch="127.0.0.1"
+proxy_port_for2ch=$PORT
+use_proxy_for2ch_w="1"
+proxy_for2ch_w="127.0.0.1"
+proxy_port_for2ch_w=$PORT
 
 # jd.conf backup.
 echo "Backup to jd.conf"
