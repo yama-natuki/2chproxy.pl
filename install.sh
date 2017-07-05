@@ -33,7 +33,7 @@ base_dir=$( cd "$( dirname "$0" )" && pwd )
 
 # if an argument is given it is used to select wich 2chproxy.pl to install
 bin_dir="${1:-$HOME/bin}"
-test -d "$bin_dir" || mkdir --parents "$bi_dir"
+test -d "$bin_dir" || mkdir --parents "$bin_dir"
 
 echo "Copying 2chproxy.pl to ${bin_dir}"
 cp -p ${base_dir}/2chproxy.pl $bin_dir
