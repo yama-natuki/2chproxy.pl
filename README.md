@@ -81,6 +81,12 @@ ubuntu14.04LTS の場合。
 
 　また場合によっては高度な設定で 2chにアクセスするときのエージェント名や、2chのクッキーを見直す。
 
+# install.sh
+
+　何がなんだか分からなくて面倒くさい人は、
+ **./install.sh** としてインストールスクリプトを実行すれば、
+自動でインストールとJDの設定もしてくれます。
+
 # 変更点
 
 　細かい変更点は [コミットログ](https://github.com/yama-natuki/2chproxy.pl/commits/master) を参照。
