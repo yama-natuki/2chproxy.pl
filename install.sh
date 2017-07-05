@@ -72,7 +72,7 @@ proxy_port_for2ch_w=$PORT
 
 # jd.conf backup.
 echo "Backup to jd.conf"
-cp -p $HOME/.jd/jd.conf{,.$(date "+%Y%m%d_%H%M%S")}
+cp -p $jd_conf{,.$(date "+%Y%m%d_%H%M%S")}
 
 echo "replace jd.conf"
 sed -e "s|^url_bbsmenu = .*$|url_bbsmenu = ${url_bbsmenu}|" \
@@ -85,7 +85,7 @@ sed -e "s|^url_bbsmenu = .*$|url_bbsmenu = ${url_bbsmenu}|" \
 	-e	"s|^use_proxy_for2ch_w.*$|use_proxy_for2ch_w = ${use_proxy_for2ch_w}|" \
 	-e	"s|^proxy_for2ch_w.*$|proxy_for2ch_w = ${proxy_for2ch_w}|" \
 	-e	"s|^proxy_port_for2ch_w.*$|proxy_port_for2ch_w = ${proxy_port_for2ch_w}|" \
-	-i $HOME/.jd/jd.conf
+	-i $jd_conf
 
 
 
