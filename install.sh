@@ -23,24 +23,17 @@ cookie_hap_bbspink="__cfduid=d;yuki=akari"
 
 
 
-pgrep jd > /dev/null
-if [ $? -eq 0 ]; then
+pgrep jd > /dev/null && {
     echo "JDを終了させてから実行してください。";
     exit 1;
-fi
+}
 
 # Set source and target directories
 base_dir=$( cd "$( dirname "$0" )" && pwd )
 
 # if an argument is given it is used to select wich 2chproxy.pl to install
-prefix="$1"
-
-if [ $prefix ]; then
-    bin_dir=$prefix
-else
-    bin_dir="$HOME/bin"
-    mkdir -p $bin_dir
-fi
+bin_dir="${1:-$HOME/bin}"
+test -d "$bin_dir" || mkdir --parents "$bi_dir"
 
 echo "Copying 2chproxy.pl to ${bin_dir}"
 cp -p ${base_dir}/2chproxy.pl $bin_dir
