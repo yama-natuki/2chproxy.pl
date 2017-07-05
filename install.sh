@@ -23,10 +23,10 @@ cookie_hap_bbspink="__cfduid=d;yuki=akari"
 
 
 
-pgrep jd
+pgrep jd > /dev/null
 if [ $? -eq 0 ]; then
-	echo "JDを終了させてから実行してください。";
-	exit 1;
+    echo "JDを終了させてから実行してください。";
+    exit 1;
 fi
 
 # Set source and target directories
@@ -36,24 +36,26 @@ base_dir=$( cd "$( dirname "$0" )" && pwd )
 prefix="$1"
 
 if [ $prefix ]; then
-	bin_dir=$prefix
+    bin_dir=$prefix
 else
-	bin_dir="$HOME/bin"
-	mkdir -p $bin_dir
+    bin_dir="$HOME/bin"
+    mkdir -p $bin_dir
 fi
 
 echo "Copying 2chproxy.pl to ${bin_dir}"
 cp -p ${base_dir}/2chproxy.pl $bin_dir
 
 echo "Copying jd.sh to ${bin_dir}"
-cat ${base_dir}/jd.sh | sed -e "s|^PROXY=.*$|PROXY=${bin_dir}/2chproxy\.pl|" \
-                            -e "s|^JD=.*$|JD=${JD}|" \
-                             > ${bin_dir}/jd.sh
+cat ${base_dir}/jd.sh | \
+    sed -e "s|^PROXY=.*$|PROXY=${bin_dir}/2chproxy\.pl|" \
+        -e "s|^JD=.*$|JD=${JD}|" \
+        > ${bin_dir}/jd.sh
 chmod +x  ${bin_dir}/jd.sh
 
 echo "Copying jd.desktop..."
-cat ${base_dir}/jd.desktop | sed -e "s|^Exec=.*$|Exec=${bin_dir}\/jd.sh|" \
-                           > $HOME/.local/share/applications/jd.desktop 
+cat ${base_dir}/jd.desktop | \
+    sed -e "s|^Exec=.*$|Exec=${bin_dir}\/jd.sh|" \
+        > $HOME/.local/share/applications/jd.desktop 
 
 #
 # change jd.conf
@@ -77,15 +79,14 @@ cp -p $jd_conf{,.$(date "+%Y%m%d_%H%M%S")}
 echo "replace jd.conf"
 sed -e "s|^url_bbsmenu = .*$|url_bbsmenu = ${url_bbsmenu}|" \
     -e "s|^use_cookie_hap = .*$|use_cookie_hap = ${use_cookie_hap}|" \
-	-e "s|^cookie_hap = .*$|cookie_hap = ${cookie_hap}|" \
-	-e	"s|^cookie_hap_bbspink = .*$|cookie_hap_bbspink = ${cookie_hap_bbspink}|" \
-	-e	"s|^use_proxy_for2ch = .*$|use_proxy_for2ch = ${use_proxy_for2ch}|" \
-	-e	"s|^proxy_for2ch = .*$|proxy_for2ch = ${proxy_for2ch}|" \
-	-e	"s|^proxy_port_for2ch = .*$|proxy_port_for2ch = ${proxy_port_for2ch}|" \
-	-e	"s|^use_proxy_for2ch_w.*$|use_proxy_for2ch_w = ${use_proxy_for2ch_w}|" \
-	-e	"s|^proxy_for2ch_w.*$|proxy_for2ch_w = ${proxy_for2ch_w}|" \
-	-e	"s|^proxy_port_for2ch_w.*$|proxy_port_for2ch_w = ${proxy_port_for2ch_w}|" \
-	-i $jd_conf
+    -e "s|^cookie_hap = .*$|cookie_hap = ${cookie_hap}|" \
+    -e "s|^cookie_hap_bbspink = .*$|cookie_hap_bbspink = ${cookie_hap_bbspink}|" \
+    -e "s|^use_proxy_for2ch = .*$|use_proxy_for2ch = ${use_proxy_for2ch}|" \
+    -e "s|^proxy_for2ch = .*$|proxy_for2ch = ${proxy_for2ch}|" \
+    -e "s|^proxy_port_for2ch = .*$|proxy_port_for2ch = ${proxy_port_for2ch}|" \
+    -e "s|^use_proxy_for2ch_w.*$|use_proxy_for2ch_w = ${use_proxy_for2ch_w}|" \
+    -e "s|^proxy_for2ch_w.*$|proxy_for2ch_w = ${proxy_for2ch_w}|" \
+    -e "s|^proxy_port_for2ch_w.*$|proxy_port_for2ch_w = ${proxy_port_for2ch_w}|" \
+    -i $jd_conf
 
-
-
+#END
