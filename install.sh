@@ -11,7 +11,7 @@ jd_conf="$HOME/.jd/jd.conf"
 
 # JDの設定
 # 板一覧を取得するサーバ
-url_bbsmenu="http://kita.jikkyo.org/cbm/cbm.cgi/2r.pr.m0.sc.op/-all/bbsmenu.html"
+url_bbsmenu="http://kita.jikkyo.org/cbm/cbm.cgi/20.p0.m0/-all/bbsmenu.html"
 # 2chのクッキー：HAPを保存する＝はい
 use_cookie_hap="1"
 # 2chのクッキー：HAP
