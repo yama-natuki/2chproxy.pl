@@ -1089,6 +1089,7 @@ sub bbsmenu_tolower_response() {
     $content  = $response->decoded_content($fallback_charset);
   }
   $content  =~ s|</FONT>|</font>|g;
+  $content  =~ s|<A HREF="(.+?)">(.+?)</A>|<A HREF=$1>$2</A>|g;
   $response->remove_header('Content-Encoding');
   $response->content(Encode::encode('cp932', $content));
 
