@@ -28,6 +28,11 @@ pgrep jd > /dev/null && {
     exit 1;
 }
 
+if [ ! -f "$jd_conf" ]; then
+    echo "$jd_conf が見付かりません。一度JDを起動し作成しておいてください。"
+    exit 1;
+fi
+
 # Set source and target directories
 base_dir=$( cd "$( dirname "$0" )" && pwd )
 
