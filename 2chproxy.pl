@@ -1,10 +1,33 @@
 #!/usr/bin/perl
 
-#Copyright (c) 2015 ◆okL.s3zZY5iC
+#Copyright (C) 2015 ◆okL.s3zZY5iC
 #This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
-#v1.0からの変更点
-# HTTP/1.0な通信でレスポンスが壊れる場合があったのを修正
+#v1.1.2からの変更点
+# 一部のオプション名を変更
+# バージョンを表示するようにした
+# httpsなリンクを変換する部分をオプションで変えられるように変更
+# 通信の細かい部分を修正
+# bbsmenuのもろもろの変更を追加
+# 特定条件下でhtml2datが無限ループっぽくなっていたので正規表現を修正
+# きっと増えているバグ
+#
+#v1.1.1からの変更点
+# お絵かきとbeアイコンのスキーム抜けに対応
+# httpsなURLのあるレスにhttpにしたURLを追加するようにした
+#
+#v1.1からの変更点
+# キャッシュが食い違うことがあったのをとりあえず修正
+# configファイルから値を読み込まない場合があったので修正
+#
+#v1.0.1からの変更点
+# 差分取得時に壊れる場合があったのを修正
+# bbspinkに対応
+# 1001以降のレス取得が出来なかったのを修正
+# レス番抜けにとりあえず対応
+# 通信部分の修正
+# parseオプションの追加
+# 他細かい修正
 # きっと増えているバグ
 
 #注意事項
@@ -55,8 +78,7 @@ my $PROXY_CONFIG  = {
   LISTEN_PORT => 8080,                                #listenするポート
   FORWARD_PROXY => '',                                #上位プロクシがあれば"http://host:port/"みたいに書く
   MAXIMUM_CONNECTIONS => 20,                          #最大同時接続数
-  USER_AGENT => 'Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0',
-  #USER_AGENT => '',
+  USER_AGENT => 'Mozilla/5.0 (X11; Linux x86_64; rv:36.0) Gecko/20100101 Firefox/36.0',
                                                       #UA偽装
   ENABLE_WEB_SCRAPING => 1,                           #datへのアクセスの際にWEBスクレイピングを有効にする
                                                       #datへの直アクセスが禁止されない限りは有効にしない方がいい
@@ -68,7 +90,7 @@ my $PROXY_CONFIG  = {
   ENABLE_MEMORY_CACHE => 1,                           #メモリ上でdatの取得したサイズ、最新のレスの番号と内容をキャッシュする
                                                       #極稀に整合性がとれなくなる
                                                       #0で無効、1で有効
-  DISABLE_GZIP_COMPRESS => 0,                         #過去ログ(.dat.gz)へのアクセスをスクレイピングした際も
+  DISABLE_GZIP_COMPRESS => 1,                         #過去ログ(.dat.gz)へのアクセスをスクレイピングした際も
                                                       #圧縮せずにテキストのまま返す
                                                       #0で無効、1で有効
   TIMEOUT => 9,                                       #接続のタイムアウト値
@@ -76,11 +98,14 @@ my $PROXY_CONFIG  = {
   DISABLE_TE_HEADER => 1,                             #If-Modified-Sinceヘッダーのない要求がプロクシに来た場合に
                                                       #TEヘッダーが付加されるのを止めるかどうか
                                                       #0で無効、1で有効
-  ENABLE_SSL_CONNECTION => 0,                         #https通信を有効にする、動くには動くが
+  ALLOW_CONNECT_METHOD => 1,                          #CONNECTメソッドを有効にする、動くには動くが
                                                       #しっかりした処理ではないので通信内容が壊れるかもしれない
                                                       #0で無効、1で有効
-  TCP_CONNECTION_BUFFER => 8192,                      #https通信時のバッファーの最大bytes数
+  TCP_CONNECTION_BUFFER => 8192,                      #CONNECT中のバッファーの最大bytes数
   ENABLE_REPLACE_IMAGE_TO_LINK => 0,                  #お絵かきをimgタグからurlへ変換する
+                                                      #0で無効、1で有効
+  ENABLE_REPLACE_HTTPS_LINK => 0,                     #httpsな2ch/bbspinkのリンクをhttpに変換する
+                                                      #専ブラの置換機能で弄れる場合はそちらを使う方が良い
                                                       #0で無効、1で有効
   KEEP_COOKIE => 1,                                   #このプロクシで*.2ch.net、*.bbspink.comのcookieを保持するかどうかのフラグ
                                                       #0で無効、1で有効
@@ -97,12 +122,10 @@ my $PROXY_CONFIG  = {
   LOG_FILE_NAME_WIN32 => dirname($0)."/2chproxy.log", #ログファイル(Windows)
   LOG_LEVEL => 5,                                     #ログ出力の閾値
   #以下WEBスクレイピングの際の正規表現
-  TITLE_REGEX => '<title>(.*)</title>',             #タイトル抽出
+  HTML2DAT_TITLE_REGEX => '<title>(.*?)(\x0d?\x0a?)</title>',             #タイトル抽出
   #                       1.レス番                        2.目欄           3.名前/ハッシュ                4.1.日付                       4.2.SE1                       4.3.ID     4.4 <0000>                               5.BE1           6.BE2          7.本文
-  RESPONSE_REGEX => '<dt>(\d+)\s[^<]*<(?:a href="mailto:([^"]+)"|font[^>]*)><b>(.*?)</b></(?:a|font)>.((?:[^<]+?)(?:\s*<a href="?http[^">]*"?[^>]*>[^<]*</a>)?(?:\s*(?:[^<]+?(?:(?:<\d+>)+[^<]*)?))?)?\s*(?:<a\s[^>]*be\(([^)]*)\)[^>]*>\?([^<]+)</a>)?<dd>([^\n]+)',
-  RESPONSE_REGEX2 => '<div class="number">(\d+)[^>]*</div><div class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></div><div class="date">([^<]+)</div>(?:<div class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></div>)?<div class="message">(.*?)</div>',
-  RESPONSE_REGEX3 => '<span class="number">(\d+)[^>]*</span><span class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></span><span class="date">([^<]+)</span>(?:<span class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></span>)?</dt><dd class="thread_in">(.*?)</dd>',
-  RESPONSE_REGEX4 => '<span class="number">(\d+)[^>]*</span><span class="name"><b>(?:<a href="mailto:([^"]+)">(.*?)</a>|(.*?))</b></span><span class="date">(.+?)</span>(?:<span class="be\s[^"]+"><a href="http://be.2ch.net/user/(\d+)"[^>]*>\?([^<]+)</a></span>)?</div><div class="message"><span class="escaped">(.*?)</span></div>',
+  HTML2DAT_REGEX => '<dt>(\d+)\s[^<]*<(?:a href="mailto:([^"]+)"|font[^>]*)><b>(.*?)</b></(?:a|font)>.((?:[^<]+?)(?:\s*<a href="?http[^">]*"?[^>]*>[^<]*</a>)?(?:\s*(?:[^<]+?(?:(?:<\d+>)+[^<]*)?))?)?\s*(?:<a\s[^>]*be\(([^)]*)\)[^>]*>\?([^<]+)</a>)?<dd>([^\n]+)',
+  HTML2DAT_REGEX2 => '<(?:div|span) class="number">(\d+)[^<]*</(?:div|span)><(?:div|span) class="name"><b>(?:<a href="mailto:([^"]+)">((?:(?!</a>).)*)</a>|(?:<font[^>]*>)?((?:(?!<\w+ class="date">).)*?)(?:</font>)?)</b></(?:div|span)><(?:div|span) class="date">((?:(?!(?:<div class="message">|<dd class="thread_in">)).)*?)</\w+>(?:<(?:div|span) class="be\s[^"]+"><a href="https?://be.2ch.net/user/(\d+)"[^>]*>\?([^>]+)</a>)?(?:|</div>|</span></div>)(?:<div class="message">|</dt><dd class="thread_in">)((?:(?!</(?:div|dd)>).)*)</(?:div|dd)>',
   #WEBスクレイピングの細かい部分の正規表現は下の方
 };
 
@@ -121,7 +144,7 @@ my $null_device_name;
 my $pid_file_name;
 my $log_file_name;
 my $charcode;
-my ($config_file_name, $is_daemon, $show_help, $kill_process, $show_settings, $print_verbose, $print_version);
+my ($is_daemon, $kill_process, $print_verbose);
 my $dedicated_browser;
 my $dat_directory;
 my $enable_guess_encoding;
@@ -130,7 +153,7 @@ my %mem_cache :shared;
 my $semaphore;
 my $tcp_connection_buffer;
 my @handlers;
-my $ver_number = "V1.0.1-170504";
+my $version_number = '1.1.3';
 
 #
 sub config_error_check() {
@@ -201,23 +224,16 @@ sub print_log() {
   my $level  = shift;
   my $tag = shift;
   my @args = @_;
+  my ($package, $file, $line) = caller;
 
   if ($level <= $log_level) {
     if (!defined($charcode)) {
       print @args;
     }
     else {
-      print Encode::encode($charcode, '['.threads->tid().'] '.$tag.": ".join("", @args));
+      print Encode::encode($charcode, '['.threads->tid().'|'.$line.'] '.$tag.": ".join("", @args));
     }
   }
-}
-
-#version
-sub version() {
-  print encode($charcode,
-        "2chproxy.pl ". $ver_number. " (c) 2015 ◆okL.s3zZY5iC \n"
-			  );
-  exit 0;
 }
 
 #help
@@ -227,45 +243,91 @@ sub help() {
         "\tWebスクレイピングも一応出来るプロクシ。\n".
         "\tLinuxでJD使ってる人用だけど他のでも動くかも。\n".
         "\tこのプロクシはユーザーが保存しているdatファイルを\n".
-        "\t読みにいこうとするので一般ユーザー以外での起動は\n".
+        "\t読みにいこうとするのでそのユーザー以外での起動は\n".
         "\tあまりおすすめしない。\n".
-        "\tまた、その場合はRangeヘッダーに対応できないので注意。\n".
         "\tOption:\n".
-        "\t\t-c|--config\n".
-        "\t\t\tコンフィグファイルのパスを指定すれば\n".
-        "\t\t\tソースのPROXY_CONFIG_FILEの代わりにそこを見に行く\n".
+        "\t\t-c|--config file.yaml\n".
+        "\t\t\tソース内のPROXY_CONFIG_FILEの代わりにfile.yamlを見に行く\n".
         "\t\t-d|--daemon\n".
         "\t\t\tデーモンとして動かす。バックグラウンドで動くので\n".
         "\t\t\tいちいちターミナルを開きっぱなしにしなくていい。\n".
         "\t\t-h|--help\n".
         "\t\t\tこのテキストを表示する。\n".
-        "\t\t-V|--version\n".
-        "\t\t\t現在のバージョンを表示する。\n".
         "\t\t-k|--kill\n".
         "\t\t\tすでに起動している2chproxyを終了させる。\n".
         "\t\t\t2chproxy --daemonと書いてあるシェルスクリプトと\n".
         "\t\t\t2chproxy --killと書いてあるシェルスクリプトを用意すると\n".
         "\t\t\tそれぞれ起動用と終了用として使えるかも。\n".
         "\t\t\t時々--killしても2重起動云々と起こられる場合があるけど\n".
-        "\t\t\tその時はrm ".$pid_file_name."してくれれば大丈夫なはず。\n"
+        "\t\t\tその時はrm ".$pid_file_name."してくれれば大丈夫なはず。\n".
+        "\t\t-p|--parse [file.html]\n".
+        "\t\t\tfile.htmlをdat形式に変換して標準出力に出力する。\n".
+        "\t\t\t引数を省略した場合は標準入力から読み込む。\n".
+        "\t\t-v|--verbose\n".
+        "\t\t\t詳細なログを出力する。\n".
+        "\t\t--version\n".
+        "\t\t\tバージョンを表示する。\n"
       );
   exit 0;
 }
 
-sub settings() {
+sub setting() {
   #stub
+  exit 0;
+}
+
+sub parse() {
+  my %opt = @_;
+  my $data;
+
+  &load_config();
+
+  {
+    local $/ = undef;
+
+    if ($opt{parse}) {
+      my $fh;
+      if ( !open($fh, '<', $opt{parse})) {
+        print $opt{parse}.': '.($! || $@)."\n";
+        exit 1;
+      }
+      $data = <$fh>;
+    }
+    else {
+      $data = <>;
+    }
+  }
+
+  $data = Encode::decode('cp932', $data);
+
+  my @array = &html2dat($data);
+  print join("\n", @array);
+
+  exit(0);
+}
+
+sub version() {
+  print encode($charcode,
+    "2chproxy.pl ".$version_number."\n".
+    "Copyright (C) 2015 ◆okL.s3zZY5iC\n"
+  );
+  exit 0;
 }
 
 #コマンドラインの取得
 sub getopt() {
   GetOptions(
-    "config|c=s" => \$config_file_name,
+    "config|c=s" => sub {
+      my ($opt_config, $config_file_name) = @_;
+      $PROXY_CONFIG->{PROXY_CONFIG_FILE} = $config_file_name if $config_file_name;
+    },
     "daemon|d" => \$is_daemon,
-    "help|h" => \$show_help,
+    "help|h" => \&help,
     "kill|k" => \$kill_process,
-    "settings|s" => \$show_settings,
+    "parse|p:s" => \&parse,
+    "setting|s" => \&setting,
     "verbose|v" => \$print_verbose,
-    "version|V"   => \$print_version
+    "version" => \&version,
   );
 }
 
@@ -279,11 +341,9 @@ sub is_running() {
 
   if (open($lock_file, "<", $pid_file_name)) {
     if (read($lock_file, $pid, -s $pid_file_name)) {
-      #とりあえず数字で始まっているかだけ確認
-      if ($pid =~ m|^(\d+)|) {
-        $pid  = $1 + 0;
-      }
-      else {
+      #取得したpidにシグナルを送れるか確認
+      $pid  = int($pid);
+      if ($pid <= 0 || !kill('ZERO', $pid)) {
         $pid  = 0;
       }
       &print_log(LOG_INFO, 'PROCESS', "pid: ".$pid."\n");
@@ -298,34 +358,33 @@ sub is_running() {
 #起動中のプロクシを殺す
 sub kill() {
   my $pid = shift;
+  &print_log(LOG_INFO, 'PROCESS', "kill the process: ".$pid."\n");
+  kill('INT', int($pid));
+  &cleanup();
+}
 
-  if ( ("$pid" =~ m|^\d+$|) && ($pid > 0) ) {
-    &print_log(LOG_INFO, 'PROCESS', "kill process: ".$pid."\n");
-    kill('INT', $pid+0);
-  }
-  else {
-    &print_log(LOG_ERR, 'PROCESS', "illegal pid: ".$pid."\n");
+sub cleanup() {
+  if (-f $pid_file_name) {
+    unlink($pid_file_name);
   }
 }
 
 #シグナルへの対処
 sub set_signals() {
   $SIG{PIPE}  = sub {
+    my ($package, $filename, $line) = caller;
     #evalの外でcatchするのでdie
     if (threads->tid()) {
+      &print_log(LOG_DEBUG, 'SIGNAL', "sigpipe received [$package, $filename, $line]\n");
       die;
     }
   };
   $SIG{INT} = sub {
-    if (-f $pid_file_name) {
-      unlink($pid_file_name);
-    }
+    &cleanup();
     exit(0);
   };
   $SIG{TERM}  = sub {
-    if (-f $pid_file_name) {
-      unlink($pid_file_name);
-    }
+    &cleanup();
     exit(0);
   };
 }
@@ -339,11 +398,14 @@ sub daemonize() {
   fork() and exit(0);
   POSIX::setsid();
   fork() and exit(0);
-  umask(0);
+  umask(022);
   chdir('/');
   open(STDIN, '<', $null_device_name) or die;
   open(STDOUT, '>', $log_file_name) or die;
-  open(STDERR, '>', $log_file_name) or die;
+  open(STDERR, '>&', 'STDOUT') or die;
+  chmod(0600, $log_file_name) or die;
+  STDOUT->autoflush(1);
+  STDERR->autoflush(1);
 
   return 0;
 }
@@ -359,113 +421,130 @@ sub exclusive_lock() {
 }
 
 sub add_handler() {
-  my ($match, $request_handler, $response_handler, $before_send_response)  = @_;
-  &print_log(LOG_INFO, 'PROXY', "add handler\n");
-  push(@handlers, {
-      match => $match,
-      request => $request_handler,
-      response  => $response_handler,
-      before_send_response  => $before_send_response,
-      data  => {},
+  my %args  = @_;
+
+  if (ref($args{match}) ne 'CODE' &&
+      (!blessed($args{match}) || !$args{match}->isa('HTTP::Config'))) {
+    #
+    return;
+  }
+  my %handler = (match => $args{match}, data => {}, );
+  foreach my $key (qw(request response_header response_done)) {
+    if (ref($args{$key}) eq 'CODE') {
+      $handler{$key}  = $args{$key};
     }
-  );
+  }
+  push(@handlers, \%handler);
 }
 
 sub html2dat() {
-  my $html  = shift;
-  my $num_expected = shift;
+  my ($html, $hash_key)  = @_;
+  my %cache = &get_mem_cache($hash_key);
   my $title = '';
   my @dat;
   my $res_del_tail_br = '<br><br>';                                     #末尾の<br> <br>を消す
   my $res_del_a = '<a\shref=[^>]+>([^&][^<]*)</a>';                     #安価以外のリンクを消す
-  my $res_del_img = '<img\s*src="http://(img\.2ch\.net/[^"]*)"\s*/?>';  #BEの絵文字をsssp://に
-  my $res_replace_oekaki2link = '<img\ssrc="(http://[^.]*\.8ch\.net/[^"]+)"[^>]*>';
+  my $res_del_img = '<img\s*src="(?:http:)?//(img\.2ch\.net/[^"]*)"\s*/?>';  #BEの絵文字をsssp://に
+  my $res_replace_oekaki2link = '<img\s*src="(?:http:)?(//[^.]*\.8ch\.net/[^"]+)"[^>]*>';
+  my $dat_del_span = '</?span[^>]*>';
   my $response_regex;
+  my $prev_res_number = $cache{dat_last_num} && $cache{dat_last_num}-1 || 0;
+
+  #dat生成部分
+  my $make_dat = sub {
+    my $line;
+    my %var = @_;
+
+    return if ($var{res_number} <= 0);
+
+    &print_log(LOG_DEBUG, 'HTML2DAT', "res_number: ".$var{res_number}."\n");
+
+    $var{date_se_id} =~ s|</span><span[^>]*>| |;
+
+    $var{content} =~ s|$res_del_tail_br||g;
+    $var{content} =~ s|$res_del_a|$1|g;
+    $var{content} =~ s|$res_del_img|sssp://$1|g;
+    $var{content} =~ s|$dat_del_span||g;
+    if ($PROXY_CONFIG->{ENABLE_REPLACE_IMAGE_TO_LINK}) {
+      $var{content} =~ s|$res_replace_oekaki2link|[お絵かき] http:$1|g;
+    }
+
+    if ($PROXY_CONFIG->{ENABLE_REPLACE_HTTPS_LINK}) {
+      my $content = $var{content};  #パターンマッチさせる変数は弄れないので
+      while ($content =~ m@(h?ttps?://(\w+\.(?:2ch\.net|bbspink\.com)/[\w/.,-]*))@g) {
+        my $url = "http://$2";
+        #通常のURLなら追加しない
+        next if ($1 =~ m@h?ttp://\w+\.(2ch\.net|bbspink\.com)/[\w/.,-]*@);
+        $var{content} .= "<br> [Replace URL] $url ";
+      }
+    }
+
+    if ($var{be1} && $var{be2}) {
+      $line = "$var{name_hash}<>$var{email}<>$var{date_se_id} BE:$var{be1}-$var{be2}<>$var{content}<>";
+    }
+    else {
+      $line = "$var{name_hash}<>$var{email}<>$var{date_se_id}<>$var{content}<>";
+    }
+    if ($var{res_number} == 1) {
+      $line .= $var{title};
+    }
+
+    if ($prev_res_number + 1 < $var{res_number}) {
+      &print_log(LOG_INFO, 'HTML2DAT', "レス番抜けを検出しました\n");
+      while (++$prev_res_number < $var{res_number}) {
+        push(@dat, 'あぼーん<>あぼーん<>あぼーん<>あぼーん<>');
+      }
+    }
+    elsif ($prev_res_number >= $var{res_number}) {
+      #stub
+    }
+    $prev_res_number = $var{res_number};
+
+    &print_log(LOG_DEBUG, 'HTML2DAT', $line."\n");
+    push(@dat, $line);
+  };
   
   &print_log(LOG_INFO, 'HTML2DAT', "convert html to dat\n");
 
   #新read.cgiでは</title>が改行された後にあるのを利用
-  if ($html =~ m/$PROXY_CONFIG->{TITLE_REGEX}/) {
-    $title  = $1;
-    while ($html =~ m/$PROXY_CONFIG->{RESPONSE_REGEX}/gs) {
-      my $line;
-      my $res_number = $1+0;
-      my $email      = $2 // "";
-      my $name_hash  = $3 // "";
-      my $date_se_id = $4 // "";
-      my $be1        = $5 // "";
-      my $be2        = $6 // "";
-      my $content    = $7 // "";
-      &print_log(LOG_DEBUG, 'HTML2DAT', "res_number: ".$res_number."\n");
-      $content =~ s|$res_del_tail_br||g;
-      $content =~ s|$res_del_a|$1|g;
-      $content =~ s|$res_del_img|sssp://$1|g;
-      if ($PROXY_CONFIG->{ENABLE_REPLACE_IMAGE_TO_LINK}) {
-        $content =~ s|$res_replace_oekaki2link|[お絵かき] $1|g;
-      }
-      if ($be1 && $be2) {
-        $line = "$name_hash<>$email<>$date_se_id BE:$be1-$be2<>$content<>";
-      }
-      else {
-        $line = "$name_hash<>$email<>$date_se_id<>$content<>";
-      }
-      if ($res_number == 1) {
-        $line .= $title;
-      }
-      &print_log(LOG_DEBUG, 'HTML2DAT', $line."\n");
-      push(@dat, $line);
+  if ($html =~ m|$PROXY_CONFIG->{HTML2DAT_TITLE_REGEX}|s) {
+    $title = $1;
+  }
+  else {
+    return;
+  }
+
+  #タイトルの後に改行コードがあるかどうかで使用する正規表現を変更
+  if (!$2) {
+    while ($html =~ m|$PROXY_CONFIG->{HTML2DAT_REGEX}|gs) {
+      $make_dat->(
+        title => $title,
+        res_number => int($1),
+        email => $2 // "",
+        name_hash => $3 // "",
+        date_se_id => $4 // "",
+        be1 => $5 // "",
+        be2 => $6 // "",
+        content => $7 // "",
+      );
     }
   }
-  elsif ($html =~ m|$PROXY_CONFIG->{TITLE_REGEX}|s) {
-    $title  = $1;
-    chomp($title);
-    my $post_reg;
-    if ($html =~ m|<base\shref="(https?:)?//[^.]+\.bbspink\.com|) {
-      $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX3};
-    }
-    elsif ($html =~ m|</h1><div class="pagestats"|) { # for read.cgi 7.0
-      $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX4};
-    }
-    else {
-      $post_reg = $PROXY_CONFIG->{RESPONSE_REGEX2};
-    }
-    while ($html =~ m@$post_reg@gs) {
-      my $line;
-      my $res_number = $1+0;
-      my $email      = $2 // '';
-      my $name_hash  = $3 // $4 // '';
-      my $date_se_id = $5 // '';
-      my $be1        = $6 // '';
-      my $be2        = $7 // '';
-      my $content    = $8 // '';
-      &print_log(LOG_DEBUG, 'HTML2DAT', "res_number: ".$res_number."\n");
-      $content    =~ s|$res_del_tail_br||g;
-      $content    =~ s|$res_del_a|$1|g;
-      $content    =~ s|$res_del_img|sssp://$1|g;
-      $date_se_id =~ s|</span><span[^>]*>| |g;
-      if ($PROXY_CONFIG->{ENABLE_REPLACE_IMAGE_TO_LINK}) {
-        $content =~ s|$res_replace_oekaki2link|[お絵かき] $1|g;
-      }
-      if ($be1 && $be2) {
-        $line = "$name_hash<>$email<>$date_se_id BE:$be1-$be2<>$content<>";
-      }
-      else {
-        $line = "$name_hash<>$email<>$date_se_id<>$content<>";
-      }
-      if ($res_number == 1) {
-        $line .= $title;
-      }
-      &print_log(LOG_DEBUG, 'HTML2DAT', $line."\n");
-      while ($num_expected != 0 && $num_expected < $res_number) {
-        push(@dat, "うふーん<>うふーん<>うふーん ID:DELETED<>うふーん<>");
-        $num_expected ++;
-      }
-	  push(@dat, $line);
-	  $num_expected = $res_number + 1;
+  else{
+    while ($html =~ m|$PROXY_CONFIG->{HTML2DAT_REGEX2}|gs) {
+      $make_dat->(
+        title => $title,
+        res_number => ($1),
+        email => $2 // "",
+        name_hash => $3 // $4 // "",
+        date_se_id => $5 // "",
+        be1 => $6 // "",
+        be2 => $7 // "",
+        content => $8 // "",
+      );
     }
   }
 
-  if (!$title || scalar @dat == 0) {
+  if (!$title || scalar(@dat) == 0) {
     #
   }
 
@@ -480,14 +559,14 @@ sub get_cookie() {
   &print_log(LOG_INFO, 'COOKIE', 'set cookie for '.$domain."\n");
   foreach my $key (@{$PROXY_CONFIG->{HANDLED_COOKIES}}) {
     lock(%cookie);
-    if ($cookie{$domain.'@'.$key}) {
+    if (exists($cookie{$domain}) && $cookie{$domain}{$key}) {
       &print_log(LOG_INFO, 'COOKIE', 'add cookie: '.$key."\n");
-      push(@cookie_array, $key.'='.$cookie{$domain.'@'.$key});
+      push(@cookie_array, $key.'='.$cookie{$domain}{$key});
     }
   }
-  &print_log(LOG_INFO, 'COOKIE', 'cookie_array: '.($#cookie_array+1)."\n");
+  &print_log(LOG_DEBUG, 'COOKIE', 'cookie_array: '.scalar(@cookie_array)."\n");
   #cookieが存在しない場合はundefを返す
-  if ($#cookie_array == -1) {
+  if (scalar(@cookie_array) == 0) {
     return undef;
   }
 
@@ -503,29 +582,33 @@ sub extract_cookie() {
   #受信したクッキーを;で分割してハッシュに代入
   foreach my $header (@headers) {
     foreach my $cookie_arg (split(/;/, $header)) {
-      my ($key, $value) = split(/=/, $cookie_arg);
-      #先頭の空白を削除
-      $key  =~ s|^\s*||;
-      $cookie_args{$key}  = $value;
+      if (my ($key, $value) = $cookie_arg =~ m|[\s]*([^\s]+?)=([^\s]+)|) {
+        $cookie_args{$key}  = $value;
+      }
     }
   }
-  $domain = $cookie_args{"domain"};
+  $domain = $cookie_args{domain};
   &print_log(LOG_INFO, 'COOKIE', 'extract cookies from '.$domain."\n");
-  foreach my $key (@{$PROXY_CONFIG->{HANDLED_COOKIES}}) {
-    if ($cookie_args{$key}) {
-      &print_log(LOG_INFO, 'COOKIE', 'cookie found: '.$key."\n");
-      lock(%cookie);
-      $cookie{$domain.'@'.$key} = $cookie_args{$key};
+  {
+    lock(%cookie);
+    if (!exists($cookie{$domain})) {
+      $cookie{$domain}  = &share({});
     }
-    else {
-      &print_log(LOG_INFO, 'COOKIE', 'cookie not found: '.$key."\n");
+    foreach my $key (@{$PROXY_CONFIG->{HANDLED_COOKIES}}) {
+      if ($cookie_args{$key}) {
+        &print_log(LOG_INFO, 'COOKIE', 'cookie found: '.$key."\n");
+        $cookie{$domain}{$key} = $cookie_args{$key};
+      }
+      else {
+        &print_log(LOG_DEBUG, 'COOKIE', 'cookie not found: '.$key."\n");
+      }
     }
   }
   #特定条件下では保持しているクッキーを削除する
   if ($PROXY_CONFIG->{UNIQ_COOKIE}) {
     lock(%cookie);
-    if ($cookie{$domain.'@'.'PREN'}) {
-      undef(%cookie);
+    if ($cookie{$domain}{PREN}) {
+      delete($cookie{$domain});
     }
   }
 }
@@ -546,6 +629,9 @@ sub get_cache() {
 
   #無い場合はローカルのdatファイルからの読み込みを試みる
   %cache  = &get_local_cache($host, $domain, $category, $dat);
+  if ($PROXY_CONFIG->{ENABLE_MEMORY_CACHE}) {
+    &set_mem_cache(%cache);
+  }
 
   return %cache;
 }
@@ -553,21 +639,32 @@ sub get_cache() {
 sub set_mem_cache() {
   my ($hash_key, %cache)  = @_;
   lock(%mem_cache);
-  $mem_cache{$hash_key.'@'.'dat_last_num'}  = $cache{dat_last_num};
-  $mem_cache{$hash_key.'@'.'dat_last_str'}  = $cache{dat_last_str};
-  $mem_cache{$hash_key.'@'.'dat_length'}  = $cache{dat_length};
+  if (!$mem_cache{$hash_key}) {
+    $mem_cache{$hash_key} = &share({});
+  }
+  foreach my $key (qw(dat_last_num dat dat_last_str dat_length)) {
+    $mem_cache{$hash_key}{$key} = $cache{$key};
+  }
+  #日付/ID部分がOver 1000 Threadになっているかで過去ログか判定
+  if ((split(/<>/, $cache{dat_last_str}))[2] eq 'Over 1000 Thread') {
+    &print_log(LOG_INFO, 'SCRAPING', "過去ログ?\n");
+    $mem_cache{$hash_key}{dat_kako} = 1;
+  }
+}
+
+sub clear_mem_cache() {
+  my ($hash_key)  = @_;
+  lock(%mem_cache);
+  delete($mem_cache{$hash_key});
 }
 
 sub get_mem_cache() {
   my $hash_key  = shift;
   lock(%mem_cache);
   #参照先を返す
-  my %cache  = (
-    dat_last_num  => $mem_cache{$hash_key.'@'.'dat_last_num'},
-    dat_last_str  => $mem_cache{$hash_key.'@'.'dat_last_str'},
-    dat_length    => $mem_cache{$hash_key.'@'.'dat_length'},
-  );
-  return %cache;
+  if (ref($mem_cache{$hash_key}) eq 'HASH') {
+    return %{$mem_cache{$hash_key}};
+  }
 }
 
 sub get_local_cache() {
@@ -582,12 +679,11 @@ sub get_local_cache() {
     my @local_dat_content_array = split(/\n/, $local_dat_content);
     if ($#local_dat_content_array > 0) {
       {
-        $cache{dat_last_num}  = $#local_dat_content_array + 1;
+        $cache{dat_last_num}  = scalar(@local_dat_content_array);
         #内部文字列で保持しておきたいので内部文字列にデコード
         $cache{dat_last_str}  = Encode::decode('cp932', $local_dat_content_array[$#local_dat_content_array]);
         $cache{dat_length}  = length($local_dat_content);
         &print_log(LOG_INFO, 'CACHE', "local dat length: ".$cache{dat_length}."\n");
-
         &set_mem_cache($hash_key, %cache);
       }
       &print_log(LOG_INFO, 'SCRAPING', "local dat found, last res: ".$cache{dat_last_str}."\n");
@@ -781,7 +877,9 @@ sub connection() {
   #UAが無いリクエストで勝手にUAを追加しないように抑制する
   $user_agent->agent('');
   #タイムアウト値を設定
-  $user_agent->timeout($PROXY_CONFIG->{TIMEOUT});
+  if ($PROXY_CONFIG->{TIMEOUT}) {
+    $user_agent->timeout($PROXY_CONFIG->{TIMEOUT});
+  }
   #上位プロクシの設定(FORWARD_PROXY(http,httpsのみ)、環境変数)
   #優先順位はFORWARD_PROXY > 環境変数
   $user_agent->env_proxy();
@@ -797,10 +895,10 @@ sub connection() {
     my $uri = $request->uri;
     my $dport;
 
-    eval {
+    if ($uri->can('port')) {
       $dport  = $uri->port;
-      &print_log(LOG_INFO, 'HTTP', "destination port is ".$dport."\n");
-    };
+      &print_log(LOG_DEBUG, 'HTTP', "destination port: ".$dport."\n");
+    }
 
     #443ポートへのCONNECTのみhttps通信として取り扱う
     if ($request->method eq 'CONNECT') {
@@ -809,7 +907,7 @@ sub connection() {
         last;
       }
       #オプションで無効にされている場合は501 Not Implementedを返す
-      if ($PROXY_CONFIG->{ENABLE_SSL_CONNECTION}) {
+      if ($PROXY_CONFIG->{ALLOW_CONNECT_METHOD}) {
         my $err = &ssl_connection(\$client, \$request, $dport);
         if ($err) {
           &print_log(LOG_INFO, 'HTTPS', $err."\n");
@@ -835,38 +933,68 @@ sub connection() {
       $keep_alive = 0;
     }
 
+    my %valid_handler = (
+      handlers =>[],
+      request => 0,
+      response_header => 0,
+      response_done => 0,
+    );
+
     my $orig_request = $request->clone; #
-    my $before_send_response  = 0;      #レスポンスを弄って返す必要があるものはtrue
+
 
     MATCH_REQUEST:
     #リクエストがハンドラが処理したいものかどうか判定
     foreach my $handler (@handlers) {
-      if (defined($handler->{match}) &&
-          ref($handler->{match}) eq 'CODE') {
-        $handler->{is_matched}  = &{$handler->{match}}($orig_request->clone, $handler->{data});
-        if ($handler->{is_matched}) {
-          $before_send_response |= $handler->{before_send_response};
+      eval {
+        if (ref($handler->{match}) eq 'CODE') {
+          $handler->{is_matched}  = &{$handler->{match}}($orig_request->clone, $handler->{data});
         }
+        #HTTP::Config
+        else {
+          $handler->{is_matched}  = $handler->{match}->matching($orig_request->clone);
+        }
+        if ($handler->{is_matched}) {
+          foreach my $key (qw(request response_header response_done)) {
+            if (defined($handler->{$key})) {
+              $valid_handler{$key}++;
+            }
+          }
+          push(@{$valid_handler{handlers}}, $handler);
+        }
+      };
+      if ($@) {
+        &print_log(LOG_NOTICE, $@);
       }
     }
 
-    REWRITE_REQUEST:
-    foreach my $handler (@handlers) {
-      if (defined($request) &&
-          defined($handler->{request}) &&
-          ref($handler->{request}) eq 'CODE' &&
-          $handler->{is_matched}) {
-        my $response  = &{$handler->{request}}($request, $handler->{data});
-        if (!blessed($response)) {
-          next REWRITE_REQUEST;
-        }
-        elsif ($response->isa('HTTP::Response')) {
-          $request  = $response;
-          last REWRITE_REQUEST;
-        }
-        else {
-          $request  = HTTP::Response->new(500, 'Proxy Error');
-          last REWRITE_REQUEST;
+    #responseを受信しきってからクライアントへ送るかのフラグ
+    my $buffered  = $valid_handler{response_done};
+
+    if ($valid_handler{request}) {
+      my $tmp_request;
+      REWRITE_REQUEST:
+      foreach my $handler (@{$valid_handler{handlers}}) {
+        eval {
+          if (defined($handler->{request})) {
+            $tmp_request  = $request->clone;
+            my $response  = $handler->{request}($request, $handler->{data});
+            if (!blessed($response)) {
+              next REWRITE_REQUEST;
+            }
+            elsif ($response->isa('HTTP::Response')) {
+              $request  = $response;
+              last REWRITE_REQUEST;
+            }
+            else {
+              $request  = HTTP::Response->new(500, 'Proxy Error');
+              last REWRITE_REQUEST;
+            }
+          }
+        };
+        if ($@) {
+          &print_log(LOG_NOTICE, 'PROXY', $@);
+          $request  = $tmp_request;
         }
       }
     }
@@ -880,140 +1008,136 @@ sub connection() {
       &print_log(LOG_INFO, 'PROXY', $client_protocol." -> HTTP/1.1\n");
       $request->protocol('HTTP/1.1');
       $request->header('Connection' => 'keep-alive');
-      if (!$request->header('Host')) {
-        eval {
-          $request->header('Host' => $request->uri->host());
-        };
+      if (!$request->header('Host') && $request->uri->can('host')) {
+        $request->header('Host' => $request->uri->host());
       }
     }
+
+    #HTTP/1.1のkeep-alive以外は全てConnection: closeにする
     if (!$keep_alive) {
       $request->header('Connection' => 'close');
     }
 
-    my $response;
-    if ($before_send_response) {
-      $response = $user_agent->simple_request($request);
-      $response->remove_header('Transfer-Encoding');
-      #クライアントが死んでそうなら何も返さずに通信を終了する
-      my $rbit;
-      vec($rbit, fileno($client), 1)  = 1;
-      select($rbit, undef, undef, 0);
-      if (vec($rbit, fileno($client), 1)) {
-        &print_log(LOG_INFO, 'HTTP', "client seems to be closed\n");
-        last REQUEST_LOOP;
-      }
-    }
-    else {
-      my $sent_headers  = 0;
-      my $chunked = 0;
-      $response  = $user_agent->simple_request($request,
-        #ここの関数内で受信したデータをクライアントへ逐次送信する
-        sub {
-          my ($chunk_data, $res, $proto) = @_;  #受信した部分的なコンテンツ、この通信のHTTP::Responseオブジェクト、何か
-          my $wlen;                             #ソケットに書き込んだ長さ
-          #クライアントへHTTPステータスとヘッダーを送っていない場合は送る
-          if (!$sent_headers) {
-            #Client-Transfer-Encodingがヘッダーに存在する場合は
-            #クライアントにchunked形式で返す
-            if (defined($res->remove_header('Client-Transfer-Encoding'))) {
-              $res->header('Transfer-Encoding' => 'chunked');
-            }
-            if ($res->header('Transfer-Encoding') eq 'chunked') {
-              #HTTP/1.1以前ではTransfer-Encodingは無い
-              if ($client_protocol lt 'HTTP/1.1') {
-                $res->remove_header('Transfer-Encoding');
-                $res->header('Connection' => 'close');
-              }
-              else {
-                &print_log(LOG_INFO, 'HTTP', "chunked detected, content return as chunked\n");
-                $res->remove_header('Content-Length');
-                $chunked = 1;
-              }
-            }
-            else {
-              &print_log(LOG_INFO, 'HTTP', "Content-Length: ".($res->header('Content-Length') // "0(null)")."\n");
-            }
-            #
-            if (!$keep_alive ||
-                $res->header('Connection') ne 'keep-alive' ||
-                $res->protocol ne 'HTTP/1.1') {
-              $res->header('Connection' => 'close');
-              $keep_alive = 0;
-            }
-            #Client-*なヘッダーを削除
-            #特にClient-Transfer-Encodingは必ず削除する
-            #(JDはClient-Transfer-Encoding: chunkedがあるとchunked形式と判断しているような動作をするため)
-            foreach my $header (qw(Client-Peer Client-Response-Num Client-Transfer-Encoding)) {
-              if ($res->header($header)) {
-                $res->remove_header($header);
-              }
-            }
-            #"\r\n"の指定はした方が良い
-            my $header = $res->as_string("\r\n");
-            &print_log(LOG_DEBUG, 'HTTP', $header);
-            print {$client} $header;
-            $sent_headers = 1;
+    my $chunked = 0;
+
+    $user_agent->set_my_handler('response_header' => sub {
+        my ($response, $ua, $h) = @_;
+
+        &print_log(LOG_NOTICE, 'HTTP', $response->protocol." ".$response->status_line." | ".$response->request->method." ".$response->request->uri->as_string."\n");
+
+        #HTTP/1.1のkeep-alive以外はConnection: close
+        if (!$keep_alive ||
+            $response->header('Connection') ne 'keep-alive' ||
+            $response->protocol() lt 'HTTP/1.1') {
+          $response->header('Connection' => 'close');
+          $keep_alive = 0;
+        }
+
+        if (defined($response->header('Client-Transfer-Encoding'))) {
+          $response->header('Transfer-Encoding' => $response->remove_header('Client-Transfer-Encoding'));
+          #HTTP/1.1以前はTransfer-Encodingが無いので削除
+          #全部受信しきる場合もContent-Lengthを使うので同様に削除
+          if ($client_protocol lt 'HTTP/1.1' || $buffered) {
+            $response->remove_header('Transfer-Encoding');
           }
-          #コンテンツの部分はchunked形式で返すか否かで送信方法を分ける
+          else {
+            &print_log(LOG_INFO, 'HTTP', "chunked detected, content return as chunked\n");
+            #優先度はTransfer-Encoding > Content-Length
+            $response->remove_header('Content-Length');
+            $chunked  = 1;
+          }
+        }
+
+        #Client-*ヘッダーは削除
+        foreach my $header (qw(Client-Peer Client-Response-Num)) {
+          if ($response->remove_header($header)) {
+            #
+          }
+        }
+
+        if ($valid_handler{response_header}) {
+          REWRITE_RESPONSE_HEADER:
+          foreach my $handler (@{$valid_handler{handlers}}) {
+            eval {
+              if (defined($handler->{response_header})) {
+                $handler->{response_header}($response, $handler->{data});
+              }
+            };
+            if ($@) {
+              &print_log(LOG_NOTICE, 'PROXY', $@);
+            }
+          }
+        }
+
+        #"\r\n"の指定はした方が良い
+        my $header  = $response->as_string("\r\n");
+        &print_log(LOG_DEBUG, 'HTTP', $header);
+        if (!$buffered) {
+          print {$client} $header;
+        }
+      },
+      owner => '2chproxy',
+    );
+
+    my $response  = $user_agent->simple_request($request,
+      sub {
+        my ($chunk_data, $response, $proto) = @_;
+
+        if ($buffered) {
+          $response->add_content($chunk_data);
+        }
+        #バッファしない場合は逐次送信
+        else {
           if ($chunked) {
             &print_log(LOG_DEBUG, 'HTTP', sprintf("chunked %x", length($chunk_data))."\n");
-            print {$client} sprintf("%x", length($chunk_data))."\r\n".$chunk_data."\r\n";
+            print {$client} sprintf('%x', length($chunk_data))."\r\n".$chunk_data."\r\n";
           }
           else {
             print {$client} $chunk_data;
           }
         }
-      );
-      #chunked形式の場合はコールバック内でフッターが送れないのでここで送る
-      if ($chunked) {
-        &print_log(LOG_DEBUG, 'HTTP', "send chunked footer\n");
-        print {$client} "0\r\n\r\n";
       }
-      else {
-        # HEADリクエストと20x以外の応答(要はコンテンツの無いレスポンス)と
-        # Content-Lengthが0な20x応答は
-        # 上のコールバックが呼ばれないのでこちらで処理する
-        # if ( ($request->method eq 'HEAD') || (!$response->is_success) ) {
-        #上のコールバックが呼ばれない->コールバック内でヘッダー周りを処理出来ていないのとほぼ同等なので
-        #シンプルなこちらを分岐に使う
-        if (!$sent_headers) {
-          #
-          if (!$keep_alive ||
-              $response->header('Connection') ne 'keep-alive' ||
-              $response->protocol ne 'HTTP/1.1') {
-            $response->header('Connection' => 'close');
-            $keep_alive = 0;
+    );
+
+    #chunkedのフッターはここで送る
+    if ($chunked) {
+      &print_log(LOG_DEBUG, 'HTTP', "send chunked footer\n");
+      print {$client} "0\r\n\r\n";
+    }
+    if ($response->header('X-Died')) {
+      &print_log(LOG_NOTICE, 'HTTP', "An Error Occured: ".$response->header('X-Died')."\n");
+    }
+
+    #受信しきる場合でクライアントが死んでそうなら通信を終了する
+    if (!$client->connected) {
+      &print_log(LOG_INFO, 'HTTP', "client seems to be closed\n");
+      last REQUEST_LOOP;
+    }
+
+    #削除
+    $user_agent->set_my_handler('response_header' => undef, owner => '2chproxy');
+
+    if ($valid_handler{response_done}) {
+      #通信後のresponseの書き換え処理
+      REWRITE_RESPONSE_DONE:
+      foreach my $handler (@{$valid_handler{handlers}}) {
+        eval {
+          if (defined($handler->{response_done})) {
+            &print_log(LOG_INFO, 'PROXY', "change response\n");
+            my $tmp_response  = $handler->{response_done}($response, $handler->{data});
+            #
+            if (blessed($tmp_response) && $tmp_response->isa('HTTP::Response')) {
+              $response = $tmp_response;
+            }
           }
-          $client->send_response($response);
+        };
+        if ($@) {
+          &print_log(LOG_NOTICE, 'PROXY', $@);
         }
       }
     }
 
-    &print_log(LOG_NOTICE, 'HTTP', $response->protocol." ".$response->status_line." | ".$response->request->method." ".$response->request->uri->as_string."\n");
-
-    #通信後のresponseの書き換え処理
-    REWRITE_RESPONSE:
-    foreach my $handler (@handlers) {
-      if (defined($handler->{response}) &&
-          ref($handler->{response}) eq 'CODE' &&
-          $handler->{is_matched} &&
-          defined($response)) {
-        &print_log(LOG_INFO, 'PROXY', "change response\n");
-        my $tmp_response  = &{$handler->{response}}($response, $handler->{data});
-        #
-        if (blessed($tmp_response) && $tmp_response->isa('HTTP::Response')) {
-          $response = $tmp_response;
-        }
-      }
-    }
-
-    if ($before_send_response) {
-      if (!$keep_alive ||
-          $response->header('Connection') ne 'keep-alive' ||
-          $response->protocol ne 'HTTP/1.1') {
-        $response->header('Connection' => 'close');
-        $keep_alive = 0;
-      }
+    if ($buffered) {
       $client->send_response($response);
     }
   }
@@ -1076,21 +1200,32 @@ sub bbsmenu_tolower_match() {
 
 sub bbsmenu_tolower_response() {
   my ($response, $data) = @_;
-  my $charset = 'cp932';
   my $fallback_charset  = 'cp932';
+  my $charset = $fallback_charset;
   if ($enable_guess_encoding) {
     $charset  = 'Guess';
   }
+
   my $content;
   eval {
-    $content = $response->decoded_content($charset);
+    $content  = $response->decoded_content(charset => $charset, charset_strict => 1, raise_error => 1,);
   };
   if ($@) {
-    $content  = $response->decoded_content($fallback_charset);
+    $content  = $response->decoded_content(charset => $fallback_charset);
   }
-  $content  =~ s|</FONT>|</font>|g;
+  #可能なら専ブラ側で対応した方が良い気がする
+  {
+    #HTMLを解釈している方
+    $content  =~ s|<a |<A |;                  #bb-chat.tv
+    $content  =~ s|</FONT>|</font>|g;
+    #$content  =~ s|<(/)?([a-zA-Z]+)(\s[^>]+)?>|<$1\L$2\E$3>|g;
+  }
+  {
+    #正規表現やその類で抽出している方
+    $content  =~ s|<A HREF="(.*)">|<A HREF=$1>|g
+  }
   $response->remove_header('Content-Encoding');
-  $response->content(Encode::encode('cp932', $content));
+  $response->content(Encode::encode('cp932', $content, Encode::FB_HTMLCREF));
 
   return $response;
 }
@@ -1133,7 +1268,7 @@ sub scraping_2ch_request() {
     $is_gzip  = $6;
 
     $hash_key  = $domain.$category.$dat;
-    $rewrite_uri = $uri->scheme()."://".$host.$domain."/test/read.cgi/".$category."/".$dat."/";
+    $rewrite_uri  = $uri->scheme()."://".$host.$domain."/test/read.cgi/".$category."/".$dat."/";
   }
   else {
     my $response  = HTTP::Response->new(500, 'Invalid URL');
@@ -1153,6 +1288,17 @@ sub scraping_2ch_request() {
     $range  = $1;
     &print_log(LOG_INFO, 'SCRAPING', 'Range header found: '.$range.'-'."\n");
     my %cache = &get_cache($host, $domain, $category, $dat);
+    #html2datの最中に専ブラ側が接続を切ると
+    #キャッシュが専ブラ側と食い違う場合があるのでその場合はキャッシュし直す
+    #これでは対応出来ない専ブラがあるかもなので要検証
+    my $tmp_str = Encode::encode('cp932', $cache{dat_last_str});
+    #if ($cache{dat_length} != $range+1) {
+    if ($range <= $cache{dat_length} - length($tmp_str) &&
+        $range > $cache{dat_length}) {
+      &print_log(LOG_INFO, 'CACHE', "キャッシュにズレが生じています\n");
+      &clear_mem_cache($hash_key);
+      %cache = &get_cache($host, $domain, $category, $dat);
+    }
     $last_res = $cache{dat_last_str};
     $rewrite_uri  .= $cache{dat_last_num}."-n";
 
@@ -1161,12 +1307,9 @@ sub scraping_2ch_request() {
     if (!$last_res) {
       $expected_partial_content = 1;
     }
-    else {
-      #レス数が1001に到達している場合は304を返す
-      if ($cache{dat_last_num} >= 1001) {
-        &print_log(LOG_INFO, 'SCRAPING', 'this thread already reached '.(1001)."\n");
-        return HTTP::Response->new(304, 'Not Modified');
-      }
+    elsif ($cache{dat_kako}) {
+      &print_log(LOG_INFO, 'SCRAPING', "過去ログ?\n");
+      return HTTP::Response->new(304, 'Not Modified');
     }
   }
   &print_log(LOG_INFO, 'SCRAPING', 'rewrite_uri: '.$rewrite_uri."\n");
@@ -1198,10 +1341,6 @@ sub scraping_2ch_response() {
   my $expected_partial_content  = $data->{expected_partial_content};
   my $uri                       = $data->{uri};
 
-  if ($response->header('X-Died')) {
-    &print_log(LOG_NOTICE, 'HTTP', "An Error Occured: ".$response->header('X-Died')."\n");
-  }
-
   #20x以外の応答は何もせずにクライアントへ返す
   if (!$response->is_success()) {
     &print_log(LOG_NOTICE, 'HTTP', "Server didn't return 20x\n");
@@ -1217,17 +1356,23 @@ sub scraping_2ch_response() {
   #Dateがダブっているので片方削除
   $response->remove_header('Date');
 
-  my $charset = 'cp932';
+  my $fallback_charset  = 'cp932';
+  my $charset = $fallback_charset;
   if ($enable_guess_encoding) {
     $charset  = 'Guess';
   }
   &print_log(LOG_INFO, 'SCRAPING', "charset: ".$charset."\n");
-  my $last_num = 0;
-  if ($response->request()->uri() =~ m@/(\d+)-n$@) {
-    $last_num = $1 + 0;
+
+  my $response_content;
+  eval {
+    $response_content = $response->decoded_content(charset => $charset, charset_strict => 1, raise_error => 1,);
+  };
+  if ($@) {
+    $response_content = $response->decoded_content(charset => $fallback_charset);
   }
-  my @content_array  = &html2dat($response->decoded_content(charset => $charset), $last_num);
-  &print_log(LOG_INFO, 'SCRAPING', "size of content_array: ".($#content_array+1)."\n");
+
+  my @content_array  = &html2dat($response_content, $hash_key);
+  &print_log(LOG_INFO, 'SCRAPING', "size of content_array: ".scalar(@content_array)."\n");
 
   #chunkedは消毒だー
   foreach my $header (qw(Transfer-Encoding Client-Transfer-Encoding)) {
@@ -1248,7 +1393,7 @@ sub scraping_2ch_response() {
     $first_res  =~ tr/ //s;
     #取得レス数が1個だった、かつfirst_resが存在するなら
     #更新していないので304を返す
-    if ($#content_array == -1 && $first_res) {
+    if (scalar(@content_array) == 0 && $first_res) {
       &print_log(LOG_INFO, 'SCRAPING', "content not modified\n");
       $response = HTTP::Response->new(304, 'Not Modified');
 
@@ -1277,15 +1422,15 @@ sub scraping_2ch_response() {
         #*未定義*
         #(多分クライアントが"ファイルが壊れている"と言うはず)
         elsif ($range < $cache{dat_length}) {
-          my $error_detection  = Encode::encode('cp932', $last_res."\n");
+          my $error_detection  = Encode::encode('cp932', $cache{dat_last_str}."\n");
           $content  = substr($error_detection, $range-$cache{dat_length});
         }
-        $content  .= Encode::encode('cp932', join("\n", @content_array)."\n");
+        $content  .= Encode::encode('cp932', join("\n", @content_array)."\n", Encode::FB_HTMLCREF);
         #差分を取得した分だけメモリのキャッシュを更新する
         #ただし更新チェックのみ(methodがHEADなリクエスト)だった場合は更新しない
         if (!$expected_head_response) {
           my %cache = &get_mem_cache($hash_key);
-          $cache{dat_last_num}  += $#content_array +1;
+          $cache{dat_last_num}  += scalar(@content_array);
           $cache{dat_last_str}  = pop(@content_array);
           $cache{dat_length}  = $range+length($content);
           &set_mem_cache($hash_key, %cache);
@@ -1307,8 +1452,7 @@ sub scraping_2ch_response() {
       $response = HTTP::Response->new(416, 'Requested Range Not Satisfiable');
       #メモリのキャッシュを削除する
       {
-        my %cache  = ();
-        &set_mem_cache($hash_key, %cache);
+        &clear_mem_cache($hash_key);
       }
 
       return $response;
@@ -1321,7 +1465,7 @@ sub scraping_2ch_response() {
     #info.2ch.net/index.php/Monazilla/develop/dat#未稿によれば
     #302になる度.dat->kako.dat.gz->kako.dat[->offlaw.cgi]の順に使用
     if (!@content_array || !$content_array[0]) {
-      &print_log(LOG_NOTICE, 'SCRAPING', "content is broken\n");
+      &print_log(LOG_NOTICE, 'SCRAPING', "broken content\n");
       $response = HTTP::Response->new(302, 'Found');
       #元のuriから次にLocationとして設定すべきuriを生成するのが面倒なので
       #人大杉のurlを返しておく
@@ -1330,11 +1474,11 @@ sub scraping_2ch_response() {
       $response->header('Location' => 'http://www2.2ch.net/live.html');
       return $response;
     }
-    $content  = Encode::encode('cp932', join("\n", @content_array)."\n");
+    $content  = Encode::encode('cp932', join("\n", @content_array)."\n", Encode::FB_HTMLCREF);
     {
       my %cache;
-      $cache{dat_last_num}  = $#content_array +1;
-      &print_log(LOG_INFO, 'SCRAPING', "last num: ".($#content_array+1)."\n");
+      $cache{dat_last_num}  = scalar(@content_array);
+      &print_log(LOG_INFO, 'SCRAPING', "last num: ".scalar(@content_array)."\n");
       $cache{dat_last_str}  = pop(@content_array);
       &print_log(LOG_INFO, 'SCRAPING', "last str: ".$cache{dat_last_str}."\n");
       $cache{dat_length}  = length($content);
@@ -1364,12 +1508,7 @@ sub scraping_2ch_response() {
         $response = HTTP::Response->new(416, 'Requested Range Not Satisfiable');
         #メモリのキャッシュを削除する
         {
-          my %cache = (
-            dat_last_num  => undef,
-            dat_last_str  => undef,
-            dat_length    => undef,
-          );
-          &set_mem_cache($hash_key, %cache);
+          &clear_mem_cache($hash_key, %cache);
         }
         return $response;
       }
@@ -1463,9 +1602,19 @@ sub load_config() {
     my $YAML  = YAML::Tiny->read($PROXY_CONFIG->{PROXY_CONFIG_FILE});
     if ($YAML && $YAML->[0]) {
       foreach my $key (keys(%$PROXY_CONFIG)) {
-        if ($YAML->[0]{$key}) {
-          &print_log(LOG_NOTICE, 'CONFIG', $key.": ".$PROXY_CONFIG->{$key}." -> ".$YAML->[0]{$key}."\n");
-          $PROXY_CONFIG->{$key} = $YAML->[0]{$key};
+        if (exists($YAML->[0]{$key})) {
+          if ($YAML->[0]{$key} ne $PROXY_CONFIG->{$key}) {
+            if (ref($PROXY_CONFIG->{$key}) eq 'SCALAR') {
+              &print_log(LOG_INFO, 'CONFIG', $key.": ".$PROXY_CONFIG->{$key}." -> ".$YAML->[0]{$key}."\n");
+            }
+            else {
+              &print_log(LOG_INFO, 'CONFIG', $key."[".ref($PROXY_CONFIG->{$key})."] changed\n");
+            }
+            $PROXY_CONFIG->{$key} = $YAML->[0]{$key};
+          }
+          else {
+            &print_log(LOG_DEBUG, 'CONFIG', $key.": no change\n");
+          }
         }
       }
       #コンフィグファイルの読み込みに成功したらグローバル変数を一新する
@@ -1483,19 +1632,19 @@ sub initialize() {
   &load_config();
   #2重起動しているかの確認,起動中のプロクシの制御
   my $pid = &is_running();
-  if ($pid) {
-    if ($kill_process) {
+  if ($kill_process) {
+    if ($pid) {
       &kill($pid);
-      exit 0;
     }
+    exit(0);
+  }
+  if ($pid) {
     &print_log(LOG_ERR, 'PROCESS', basename($0)." is already running.\n");
     &print_log(LOG_ERR, 'PROCESS', "if you kill ".basename($0).", please run this command: ".basename($0)." --kill\n");
     &print_log(LOG_ERR, 'PROCESS', "or : rm ".$pid_file_name."\n");
     exit 1;
   }
-  elsif ($kill_process) {
-    exit 0;
-  }
+
   #プロセスのデーモン化
   if ($is_daemon) {
     &daemonize();
@@ -1506,43 +1655,29 @@ sub initialize() {
   &set_signals();
 
   #handlerの設定
-  &add_handler(\&change_ua_cookie_match,
-    \&change_ua_cookie_request,
-    \&change_ua_cookie_response,
-    0);
-  &add_handler(\&bbsmenu_tolower_match,
-    undef,
-    \&bbsmenu_tolower_response,
-    1);
-  &add_handler(\&scraping_2ch_match,
-    \&scraping_2ch_request,
-    \&scraping_2ch_response,
-    1);
+  &add_handler(
+    match => \&change_ua_cookie_match,
+    request => \&change_ua_cookie_request,
+    response_header => \&change_ua_cookie_response,
+  );
+  &add_handler(
+    match => \&bbsmenu_tolower_match,
+    response_done => \&bbsmenu_tolower_response,
+  );
+  &add_handler(
+    match => \&scraping_2ch_match,
+    request => \&scraping_2ch_request,
+    response_done => \&scraping_2ch_response,
+  );
 }
 
 #main
-{
-  &getopt();
-
-  if ($config_file_name) {
-    $PROXY_CONFIG->{PROXY_CONFIG_FILE} = $config_file_name;
-  }
-  
+{ 
   #グローバル変数の初期化
   &initialize_global_var();
 
-  if ($show_help) {
-    &help();
-    exit 0;
-  }
-  elsif ($print_version) {
-   &version();
-   exit 0;
-  }
-  elsif ($show_settings) {
-    &print_settings();
-    exit 0;
-  }
+  &getopt();
+
   &initialize();
   &run_proxy();
 }
