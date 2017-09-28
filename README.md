@@ -94,6 +94,7 @@ ubuntu14.04LTS の場合。
 
 　また場合によっては高度な設定で 2chにアクセスするときのエージェント名や、2chのクッキーを見直す。
 
+　ディストリ提供のJDがsegfaultで起動しない場合は [こちら](https://github.com/yama-natuki/JD/tree/test) を試してみてください。
 
 # 変更点
 
