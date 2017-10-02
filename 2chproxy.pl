@@ -3,31 +3,10 @@
 #Copyright (C) 2015 ◆okL.s3zZY5iC
 #This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 
-#v1.1.2からの変更点
+#v1.1.3からの変更点
 # 一部のオプション名を変更
-# バージョンを表示するようにした
-# httpsなリンクを変換する部分をオプションで変えられるように変更
-# 通信の細かい部分を修正
-# bbsmenuのもろもろの変更を追加
-# 特定条件下でhtml2datが無限ループっぽくなっていたので正規表現を修正
-# きっと増えているバグ
-#
-#v1.1.1からの変更点
-# お絵かきとbeアイコンのスキーム抜けに対応
-# httpsなURLのあるレスにhttpにしたURLを追加するようにした
-#
-#v1.1からの変更点
-# キャッシュが食い違うことがあったのをとりあえず修正
-# configファイルから値を読み込まない場合があったので修正
-#
-#v1.0.1からの変更点
-# 差分取得時に壊れる場合があったのを修正
-# bbspinkに対応
-# 1001以降のレス取得が出来なかったのを修正
-# レス番抜けにとりあえず対応
-# 通信部分の修正
-# parseオプションの追加
-# 他細かい修正
+# 5ch.netにとりあえず対応
+# 細かい修正
 # きっと増えているバグ
 
 #注意事項
@@ -42,8 +21,10 @@
 #4. 設定の変更を適用する場合はプロクシの再起動が必要です
 #5. Windowsで使う場合はActive Perlではなくcygwin+perlを使う方が良いかもしれません
 #   現状で問題なく動いているなら変える必要はないと思います
-#6. きっとエラーは発生します
-#7. 自己責任で使ってください
+#6. 一部オプションにはdatを目に見える形で書き換える機能があるので
+#   テンプレを用いたスレ立てには注意して下さい
+#7. きっとエラーは発生します
+#8. 自己責任で使ってください
 #
 #専用スレがあるようなのでスレが見られる人は
 #これに関する話題はそちらを使うといいかもしれません
@@ -102,18 +83,32 @@ my $PROXY_CONFIG  = {
                                                       #しっかりした処理ではないので通信内容が壊れるかもしれない
                                                       #0で無効、1で有効
   TCP_CONNECTION_BUFFER => 8192,                      #CONNECT中のバッファーの最大bytes数
-  ENABLE_REPLACE_IMAGE_TO_LINK => 0,                  #お絵かきをimgタグからurlへ変換する
+  ENABLE_IMG_TO_LINK => 0,                            #   *dat書き換え*
+                                                      #お絵かきをimgタグからurlへ変換する
                                                       #0で無効、1で有効
-  ENABLE_REPLACE_HTTPS_LINK => 0,                     #httpsな2ch/bbspinkのリンクをhttpに変換する
+  ENABLE_REPLACE_HTTPS_LINK => 0,                     #   *dat書き換え*
+                                                      #httpsな2ch/bbspinkのリンクをhttpに変換する
                                                       #専ブラの置換機能で弄れる場合はそちらを使う方が良い
                                                       #0で無効、1で有効
+  ENABLE_2CH_TO_nCH => 0,                             #   *dat書き換え*
+                                                      #nch.net<->2ch.netの変換を行う
+                                                      #0で無効
+                                                      #1で2ch.netへのアクセスをnch.netへ変換
+                                                      #2で1に加えて2ch->nchへのリンク書き換え
+                                                      #3で1に加えてnch->2chへのリンク書き換え
+                                                      # - bbsmenuを5chに変えても動作する
+                                                      #   * 2ch.netのリンクを踏んで
+                                                      #     - 5ch.netのスレに飛ぶ -> 0
+                                                      #     - 2ch.netのスレに飛ぶ -> 1
+                                                      #     - ブラウザが開くetc   -> 2
+                                                      # - 2chじゃないと動作しない -> 3
   KEEP_COOKIE => 1,                                   #このプロクシで*.2ch.net、*.bbspink.comのcookieを保持するかどうかのフラグ
                                                       #0で無効、1で有効
   UNIQ_COOKIE => 0,                                   #KEEP_COOKIEが有効になっている状態で
                                                       #書き込み毎にcookieを変えたい場合はこれを有効にする
                                                       #0で無効、1で有効
   HANDLED_COOKIES => [qw(__cfduid yuki PREN)],        #KEEP_COOKIEが有効な時にプロクシで保持するクッキー
-  DAT_URL => '^https?://([\w]+)(\.2ch\.net|\.bbspink\.com)(:[\d]+)?/([\w]+)/(?:dat|kako/\d+(?:/\d+)?)/([\d]+(?:-[\d]+)?)\.dat(\.gz)?$',  #datへのアクセスかを判定する正規表現
+  DAT_URL => '^https?://([\w]+)(\.\d+ch\.net|\.bbspink\.com)(:[\d]+)?/([\w]+)/(?:dat|kako/\d+(?:/\d+)?)/([\d]+(?:-[\d]+)?)\.dat(\.gz)?$',  #datへのアクセスかを判定する正規表現
   NULL_DEVICE => '/dev/null',                         #nullデバイスの場所
   PID_FILE_NAME => "/tmp/2chproxy.pid",               #pidが書かれたファイル、2重起動禁止にも用いている
   LOG_FILE_NAME => "/tmp/2chproxy.log",               #ログファイル
@@ -125,7 +120,7 @@ my $PROXY_CONFIG  = {
   HTML2DAT_TITLE_REGEX => '<title>(.*?)(\x0d?\x0a?)</title>',             #タイトル抽出
   #                       1.レス番                        2.目欄           3.名前/ハッシュ                4.1.日付                       4.2.SE1                       4.3.ID     4.4 <0000>                               5.BE1           6.BE2          7.本文
   HTML2DAT_REGEX => '<dt>(\d+)\s[^<]*<(?:a href="mailto:([^"]+)"|font[^>]*)><b>(.*?)</b></(?:a|font)>.((?:[^<]+?)(?:\s*<a href="?http[^">]*"?[^>]*>[^<]*</a>)?(?:\s*(?:[^<]+?(?:(?:<\d+>)+[^<]*)?))?)?\s*(?:<a\s[^>]*be\(([^)]*)\)[^>]*>\?([^<]+)</a>)?<dd>([^\n]+)',
-  HTML2DAT_REGEX2 => '<(?:div|span) class="number">(\d+)[^<]*</(?:div|span)><(?:div|span) class="name"><b>(?:<a href="mailto:([^"]+)">((?:(?!</a>).)*)</a>|(?:<font[^>]*>)?((?:(?!<\w+ class="date">).)*?)(?:</font>)?)</b></(?:div|span)><(?:div|span) class="date">((?:(?!(?:<div class="message">|<dd class="thread_in">)).)*?)</\w+>(?:<(?:div|span) class="be\s[^"]+"><a href="https?://be.2ch.net/user/(\d+)"[^>]*>\?([^>]+)</a>)?(?:|</div>|</span></div>)(?:<div class="message">|</dt><dd class="thread_in">)((?:(?!</(?:div|dd)>).)*)</(?:div|dd)>',
+  HTML2DAT_REGEX2 => '<(?:div|span) class="number">(\d+)[^<]*</(?:div|span)><(?:div|span) class="name"><b>(?:<a href="mailto:([^"]+)">((?:(?!</a>).)*)</a>|(?:<font[^>]*>)?((?:(?!<\w+ class="date">).)*?)(?:</font>)?)</b></(?:div|span)><(?:div|span) class="date">((?:(?!(?:<div class="message">|<dd class="thread_in">)).)*?)</\w+>(?:<(?:div|span) class="be\s[^"]+"><a href="https?://be.\d+ch.net/user/(\d+)"[^>]*>\?([^>]+)</a>)?(?:|</div>|</span></div>)(?:<div class="message">|</dt><dd class="thread_in">)((?:(?!</(?:div|dd)>).)*)</(?:div|dd)>',
   #WEBスクレイピングの細かい部分の正規表現は下の方
 };
 
@@ -153,7 +148,7 @@ my %mem_cache :shared;
 my $semaphore;
 my $tcp_connection_buffer;
 my @handlers;
-my $version_number = '1.1.3';
+my $version_number = '1.1.3-171003';
 
 #
 sub config_error_check() {
@@ -194,6 +189,12 @@ sub initialize_global_var() {
 
   $dedicated_browser  = $PROXY_CONFIG->{DEDICATED_BROWSER};
   $dat_directory  = $PROXY_CONFIG->{DAT_DIRECTORY};
+
+  #nch<->2chのリンクの書き換えを行う為
+  #https->httpのリンク書き換えを利用する
+  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} >= 2) {
+    $PROXY_CONFIG->{ENABLE_REPLACE_HTTPS_LINK} = 1;
+  }
 
   #Encode::Guessによる文字コード判別が可能であれば有効にする
   eval {
@@ -444,8 +445,8 @@ sub html2dat() {
   my @dat;
   my $res_del_tail_br = '<br><br>';                                     #末尾の<br> <br>を消す
   my $res_del_a = '<a\shref=[^>]+>([^&][^<]*)</a>';                     #安価以外のリンクを消す
-  my $res_del_img = '<img\s*src="(?:http:)?//(img\.2ch\.net/[^"]*)"\s*/?>';  #BEの絵文字をsssp://に
-  my $res_replace_oekaki2link = '<img\s*src="(?:http:)?(//[^.]*\.8ch\.net/[^"]+)"[^>]*>';
+  my $res_del_img = '<img\s*src="(?:https?:)?//(img\.\d+ch\.net/[^"]*)"\s*/?>';  #BEの絵文字をsssp://に
+  my $res_replace_oekaki2link = '<img\s*src="(?:https?:)?(//[^.]*\.8ch\.net/[^"]+)"[^>]*>';
   my $dat_del_span = '</?span[^>]*>';
   my $response_regex;
   my $prev_res_number = $cache{dat_last_num} && $cache{dat_last_num}-1 || 0;
@@ -465,16 +466,31 @@ sub html2dat() {
     $var{content} =~ s|$res_del_a|$1|g;
     $var{content} =~ s|$res_del_img|sssp://$1|g;
     $var{content} =~ s|$dat_del_span||g;
-    if ($PROXY_CONFIG->{ENABLE_REPLACE_IMAGE_TO_LINK}) {
+    if ($PROXY_CONFIG->{ENABLE_IMG_TO_LINK}) {
       $var{content} =~ s|$res_replace_oekaki2link|[お絵かき] http:$1|g;
     }
 
     if ($PROXY_CONFIG->{ENABLE_REPLACE_HTTPS_LINK}) {
       my $content = $var{content};  #パターンマッチさせる変数は弄れないので
-      while ($content =~ m@(h?ttps?://(\w+\.(?:2ch\.net|bbspink\.com)/[\w/.,-]*))@g) {
+      while ($content =~ m@(h?ttps?://(\w+\.(?:\d+ch\.net|bbspink\.com)/[0-9a-zA-Z/.,-]*))@g) {
         my $url = "http://$2";
+
+        my $regex = qr@h?ttp://\w+\.(\d+ch\.net|bbspink\.com)/[\w/.,-]*@;
+        if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 2) {
+          $regex = qr@h?ttp://\w+\.(5ch\.net|bbspink\.com)/[\w/.,-]*@;
+        }
+        elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 3) {
+          $regex = qr@h?ttp://\w+\.(2ch\.net|bbspink\.com)/[\w/.,-]*@;
+        }
         #通常のURLなら追加しない
-        next if ($1 =~ m@h?ttp://\w+\.(2ch\.net|bbspink\.com)/[\w/.,-]*@);
+        next if ($1 =~ m@$regex@);
+
+        if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 2) {
+          $url =~ s|\d+ch\.net|5ch.net|;
+        }
+        elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 3) {
+          $url =~ s|\d+ch\.net|2ch.net|;
+        }
         $var{content} .= "<br> [Replace URL] $url ";
       }
     }
@@ -555,6 +571,10 @@ sub html2dat() {
 sub get_cookie() {
   my ($domain)  = @_;
   my @cookie_array;
+
+  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH}) {
+    $domain =~ s|\.2ch\.net|.5ch.net|;
+  }
 
   &print_log(LOG_INFO, 'COOKIE', 'set cookie for '.$domain."\n");
   foreach my $key (@{$PROXY_CONFIG->{HANDLED_COOKIES}}) {
@@ -1018,6 +1038,8 @@ sub connection() {
       $request->header('Connection' => 'close');
     }
 
+    &print_log(LOG_DEBUG, 'HTTP', $request->as_string."\n");
+
     my $chunked = 0;
 
     $user_agent->set_my_handler('response_header' => sub {
@@ -1148,19 +1170,19 @@ sub connection() {
 }
 
 #一部のドメインへの接続はUAとクッキーを変更する
-sub change_ua_cookie_match() {
+sub change_access_Nch_match() {
   my $request  = shift;
 
-  if ($request->uri->host =~ m@(\.2ch\.net|\.bbspink\.com)$@) {
+  if ($request->uri->host =~ m@(\.\d+ch\.net|\.bbspink\.com)$@) {
     return 1;
   }
   return 0;
 }
 
-sub change_ua_cookie_request() {
+sub change_access_Nch_request() {
   my $request = shift;
 
-  if ($request->uri->host =~ m@(\.2ch\.net|\.bbspink\.com)$@) {
+  if ($request->uri->host =~ m@(\.\d+ch\.net|\.bbspink\.com)$@) {
     my $domain  = $1;
     if ($PROXY_CONFIG->{USER_AGENT}) {
       &print_log(LOG_INFO, 'PROXY', 'change user-agent:'.$request->header('User-Agent')."->".$PROXY_CONFIG->{USER_AGENT}."\n");
@@ -1177,10 +1199,26 @@ sub change_ua_cookie_request() {
         $request->header('Cookie' => $cookie_str);
       }
     }
+    if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH}) {
+      my $url = $request->uri->as_string;
+      $url =~ s|\.2ch\.net|.5ch.net|;
+      $request->uri($url);
+      my $host = $request->header('Host');
+      if ($host) {
+        $host =~ s|\.2ch\.net|.5ch.net|;
+        $request->header('Host' => $host);
+      }
+      my $referer = $request->header('Referer');
+      if ($referer) {
+        $referer =~ s|\.2ch\.net|.5ch.net|;
+        $request->header('Referer' => $referer);
+      }
+      &print_log(LOG_INFO, '2ch to Nch', 'rewrite_uri: '.$url."\n");
+    }
   }
 }
 
-sub change_ua_cookie_response() {
+sub change_access_Nch_response() {
   my $response = shift;
 
   #一部ドメインへの接続はクッキーを保存する
@@ -1192,7 +1230,7 @@ sub change_ua_cookie_response() {
 
 sub bbsmenu_tolower_match() {
   my ($request, $data)  = @_;
-  if ($request->uri->as_string =~ m|^http://menu\.2ch\.net(?::80)?/bbsmenu\.html$|) {
+  if ($request->uri->as_string =~ m|^https?://menu\.\d+ch\.net(?::80)?/bbsmenu\.html$|) {
     return 1;
   }
   return 0;
@@ -1223,6 +1261,9 @@ sub bbsmenu_tolower_response() {
   {
     #正規表現やその類で抽出している方
     $content  =~ s|<A HREF="(.*)">|<A HREF=$1>|g
+  }
+  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 3) {
+    $content  =~ s|https?://(\w+)\.\d+ch\.net/|http://$1.2ch.net/|g;
   }
   $response->remove_header('Content-Encoding');
   $response->content(Encode::encode('cp932', $content, Encode::FB_HTMLCREF));
@@ -1604,7 +1645,7 @@ sub load_config() {
       foreach my $key (keys(%$PROXY_CONFIG)) {
         if (exists($YAML->[0]{$key})) {
           if ($YAML->[0]{$key} ne $PROXY_CONFIG->{$key}) {
-            if (ref($PROXY_CONFIG->{$key}) eq 'SCALAR') {
+            if (!ref($PROXY_CONFIG->{$key})) {
               &print_log(LOG_INFO, 'CONFIG', $key.": ".$PROXY_CONFIG->{$key}." -> ".$YAML->[0]{$key}."\n");
             }
             else {
@@ -1656,11 +1697,6 @@ sub initialize() {
 
   #handlerの設定
   &add_handler(
-    match => \&change_ua_cookie_match,
-    request => \&change_ua_cookie_request,
-    response_header => \&change_ua_cookie_response,
-  );
-  &add_handler(
     match => \&bbsmenu_tolower_match,
     response_done => \&bbsmenu_tolower_response,
   );
@@ -1668,6 +1704,11 @@ sub initialize() {
     match => \&scraping_2ch_match,
     request => \&scraping_2ch_request,
     response_done => \&scraping_2ch_response,
+  );
+  &add_handler(
+    match => \&change_access_Nch_match,
+    request => \&change_access_Nch_request,
+    response_header => \&change_access_Nch_response,
   );
 }
 
