@@ -148,7 +148,7 @@ my %mem_cache :shared;
 my $semaphore;
 my $tcp_connection_buffer;
 my @handlers;
-my $version_number = '1.1.3-171003';
+my $version_number = '1.2.0';
 
 #
 sub config_error_check() {
