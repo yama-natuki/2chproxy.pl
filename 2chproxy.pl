@@ -1,12 +1,18 @@
 #!/usr/bin/perl
 
 #Copyright (C) 2015 ◆okL.s3zZY5iC
-#This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+#Released under the MIT license
+#http://opensource.org/licenses/mit-license.php
 
-#v1.1.3からの変更点
-# 一部のオプション名を変更
-# 5ch.netにとりあえず対応
-# 細かい修正
+#v1.2.1からの変更点
+# URL置換でダブらないように修正
+# スレタイ検索でもURLを置換するようにした
+#
+#v1.2からの変更点
+# 余計な物までURLの置換対象になっていたので修正
+# beアイコンのurl書き換え部分の修正
+# ENABLE_2CH_TO_nCHの設定値が増えた関係で
+#   v1.2.1では"4"がv1.2での"3"相当のものになった
 # きっと増えているバグ
 
 #注意事項
@@ -90,18 +96,24 @@ my $PROXY_CONFIG  = {
                                                       #httpsな2ch/bbspinkのリンクをhttpに変換する
                                                       #専ブラの置換機能で弄れる場合はそちらを使う方が良い
                                                       #0で無効、1で有効
-  ENABLE_2CH_TO_nCH => 0,                             #   *dat書き換え*
+  ENABLE_2CH_TO_nCH => 1,                             #   *dat書き換え*
                                                       #nch.net<->2ch.netの変換を行う
                                                       #0で無効
                                                       #1で2ch.netへのアクセスをnch.netへ変換
                                                       #2で1に加えて2ch->nchへのリンク書き換え
-                                                      #3で1に加えてnch->2chへのリンク書き換え
-                                                      # - bbsmenuを5chに変えても動作する
-                                                      #   * 2ch.netのリンクを踏んで
-                                                      #     - 5ch.netのスレに飛ぶ -> 0
-                                                      #     - 2ch.netのスレに飛ぶ -> 1
-                                                      #     - ブラウザが開くetc   -> 2
-                                                      # - 2chじゃないと動作しない -> 3
+                                                      #3で1に加えてbbsmenuのみnch->2chへのリンク書き換え
+                                                      #4で3に加えてdatもnch->2chへのリンク書き換え
+                                                      # - 専ブラが5ch.netの板を認識できる
+                                                      #   - 専ブラの置換機能で2chのリンクを5chのに置換する/置換の必要なし ->  1
+                                                      #   - 専ブラに置換機能が無い/使用しない(串側で置換する)             ->  2
+                                                      # - 認識できない
+                                                      #   - 専ブラの置換機能で5chのリンクを2chのに置換する                ->  3
+                                                      #   - 専ブラに置換機能が無い/使用しない(串側で置換する)             ->  4
+  THREAD_TITLE_SEARCH_URL => '',                      #スレ検索に使うURL
+                                                      #スレ検索でのURLの置換が必要な場合はURLを設定する
+                                                      #URLを指定しなければ無効
+                                                      #ENABLE_2CH_TO_nCHが1 or 2なら2ch->5ch
+                                                      #                   3 or 4なら5ch->2ch
   KEEP_COOKIE => 1,                                   #このプロクシで*.2ch.net、*.bbspink.comのcookieを保持するかどうかのフラグ
                                                       #0で無効、1で有効
   UNIQ_COOKIE => 0,                                   #KEEP_COOKIEが有効になっている状態で
@@ -148,7 +160,7 @@ my %mem_cache :shared;
 my $semaphore;
 my $tcp_connection_buffer;
 my @handlers;
-my $version_number = '1.2.0';
+my $version_number = '1.2.2';
 
 #
 sub config_error_check() {
@@ -192,7 +204,7 @@ sub initialize_global_var() {
 
   #nch<->2chのリンクの書き換えを行う為
   #https->httpのリンク書き換えを利用する
-  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} >= 2) {
+  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 2 || $PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 4) {
     $PROXY_CONFIG->{ENABLE_REPLACE_HTTPS_LINK} = 1;
   }
 
@@ -445,7 +457,7 @@ sub html2dat() {
   my @dat;
   my $res_del_tail_br = '<br><br>';                                     #末尾の<br> <br>を消す
   my $res_del_a = '<a\shref=[^>]+>([^&][^<]*)</a>';                     #安価以外のリンクを消す
-  my $res_del_img = '<img\s*src="(?:https?:)?//(img\.\d+ch\.net/[^"]*)"\s*/?>';  #BEの絵文字をsssp://に
+  my $res_del_img = '<img\s*src="(?:https?:)?//img\.(\d+)ch\.net/([^"]*)"\s*/?>';  #BEの絵文字をsssp://に
   my $res_replace_oekaki2link = '<img\s*src="(?:https?:)?(//[^.]*\.8ch\.net/[^"]+)"[^>]*>';
   my $dat_del_span = '</?span[^>]*>';
   my $response_regex;
@@ -464,7 +476,15 @@ sub html2dat() {
 
     $var{content} =~ s|$res_del_tail_br||g;
     $var{content} =~ s|$res_del_a|$1|g;
-    $var{content} =~ s|$res_del_img|sssp://$1|g;
+    if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 2) {
+      $var{content} =~ s|$res_del_img|sssp://img.5ch.net/$2|g;
+    }
+    elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 4) {
+      $var{content} =~ s|$res_del_img|sssp://img.2ch.net/$2|g;
+    }
+    else {
+      $var{content} =~ s|$res_del_img|sssp://img.$1ch.net/$2|g;
+    }
     $var{content} =~ s|$dat_del_span||g;
     if ($PROXY_CONFIG->{ENABLE_IMG_TO_LINK}) {
       $var{content} =~ s|$res_replace_oekaki2link|[お絵かき] http:$1|g;
@@ -472,14 +492,15 @@ sub html2dat() {
 
     if ($PROXY_CONFIG->{ENABLE_REPLACE_HTTPS_LINK}) {
       my $content = $var{content};  #パターンマッチさせる変数は弄れないので
-      while ($content =~ m@(h?ttps?://(\w+\.(?:\d+ch\.net|bbspink\.com)/[0-9a-zA-Z/.,-]*))@g) {
+      my %replace_url_list;
+      while ($content =~ m@(h?ttps?://([0-9a-zA-Z]+\.(?:[25]ch\.net|bbspink\.com)/[0-9a-zA-Z/.,-]*))@g) {
         my $url = "http://$2";
 
         my $regex = qr@h?ttp://\w+\.(\d+ch\.net|bbspink\.com)/[\w/.,-]*@;
         if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 2) {
           $regex = qr@h?ttp://\w+\.(5ch\.net|bbspink\.com)/[\w/.,-]*@;
         }
-        elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 3) {
+        elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 4) {
           $regex = qr@h?ttp://\w+\.(2ch\.net|bbspink\.com)/[\w/.,-]*@;
         }
         #通常のURLなら追加しない
@@ -488,9 +509,12 @@ sub html2dat() {
         if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 2) {
           $url =~ s|\d+ch\.net|5ch.net|;
         }
-        elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 3) {
+        elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 4) {
           $url =~ s|\d+ch\.net|2ch.net|;
         }
+        $replace_url_list{$url} = 1;
+      }
+      foreach my $url (keys(%replace_url_list)) {
         $var{content} .= "<br> [Replace URL] $url ";
       }
     }
@@ -1262,13 +1286,47 @@ sub bbsmenu_tolower_response() {
     #正規表現やその類で抽出している方
     $content  =~ s|<A HREF="(.*)">|<A HREF=$1>|g
   }
-  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 3) {
+  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} >= 3) {
     $content  =~ s|https?://(\w+)\.\d+ch\.net/|http://$1.2ch.net/|g;
   }
   $response->remove_header('Content-Encoding');
   $response->content(Encode::encode('cp932', $content, Encode::FB_HTMLCREF));
 
   return $response;
+}
+
+sub thread_title_search_match() {
+  my ($request, $data)  = @_;
+  if ($PROXY_CONFIG->{THREAD_TITLE_SEARCH_URL}) {
+    my $url = URI->new($PROXY_CONFIG->{THREAD_TITLE_SEARCH_URL})->canonical->as_string;
+    if ($request->uri->canonical->as_string =~ m|$url|) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+sub thread_title_search_response() {
+  my ($response, $data) = @_;
+  my $content;
+
+  #gzip等のデコードのみ行う
+  if (!$response->decode()) {
+    return;
+  }
+  #置換の対象になる部分はASCIIのみであるため
+  #文字コード判別の必要は無い
+  $content  = $response->content();
+
+  if ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 1 || $PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 2) {
+    &print_log(LOG_INFO, 'THREAD SEARCH', "2ch->5ch\n");
+    $content =~ s|https?://([0-9a-zA-Z]+)\.2ch\.net/|http://$1.5ch.net|g;
+  }
+  elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 3 || $PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 4) {
+    &print_log(LOG_INFO, 'THREAD SEARCH', "5ch->2ch\n");
+    $content =~ s|https?://([0-9a-zA-Z]+)\.5ch\.net/|http://$1.2ch.net|g;
+  }
+  $response->content($content);
 }
 
 sub scraping_2ch_match() {
@@ -1704,6 +1762,10 @@ sub initialize() {
     match => \&scraping_2ch_match,
     request => \&scraping_2ch_request,
     response_done => \&scraping_2ch_response,
+  );
+  &add_handler(
+    match => \&thread_title_search_match,
+    response_done => \&thread_title_search_response,
   );
   &add_handler(
     match => \&change_access_Nch_match,
