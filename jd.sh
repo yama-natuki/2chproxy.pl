@@ -1,5 +1,5 @@
 #!/bin/sh
-# last updated : 2017/05/01 12:26:55 JST
+# last updated : 2017/10/27 23:49:53 JST
 #
 # 2chproxy.pl を起動してからJDを起動する。
 #
@@ -19,6 +19,11 @@ if [  -f ${PROXY} ]; then
 else
 	echo "${PROXY} が見つかりません。\n pathかファイル名が正しいか確認してください。";
 	exit 1;
+fi
+
+if [ ! -x ${JD} ]; then
+    echo "JDがみつかりません。設定が正しいか確認してください。";
+    exit 1;
 fi
 
 pgrep 2chproxy.pl
