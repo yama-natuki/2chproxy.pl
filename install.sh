@@ -33,6 +33,15 @@ if [ ! -f "$jd_conf" ]; then
     exit 1;
 fi
 
+which jd > /dev/null
+if [ $? -ne 0 ]; then
+    echo "JDがみつかりません。"
+    exit 1;
+elif [ $JD != $(which jd) ]; then
+    JD=$(which jd)
+    echo "change JD path,  $JD";
+fi
+
 # Set source and target directories
 base_dir=$( cd "$( dirname "$0" )" && pwd )
 
@@ -86,5 +95,7 @@ sed -e "s|^url_bbsmenu = .*$|url_bbsmenu = ${url_bbsmenu}|" \
     -e "s|^proxy_for2ch_w.*$|proxy_for2ch_w = ${proxy_for2ch_w}|" \
     -e "s|^proxy_port_for2ch_w.*$|proxy_port_for2ch_w = ${proxy_port_for2ch_w}|" \
     -i $jd_conf
+
+echo "done."
 
 #END
