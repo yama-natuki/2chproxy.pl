@@ -42,6 +42,17 @@ elif [ $JD != $(which jd) ]; then
     echo "change JD path,  $JD";
 fi
 
+# perl library check.
+declare -a module=("HTTP::Daemon" "LWP::UserAgent" "LWP::Protocol::https")
+
+for i in ${module[@]}; do
+    perl -M$i -e '' >& /dev/null
+    if [ $? -ne 0 ]; then
+        echo "perl module [$i] is not found.";
+        exit 1;
+    fi
+done
+
 # Set source and target directories
 base_dir=$( cd "$( dirname "$0" )" && pwd )
 
