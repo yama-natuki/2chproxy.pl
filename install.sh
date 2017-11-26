@@ -33,13 +33,9 @@ if [ ! -f "$jd_conf" ]; then
     exit 1;
 fi
 
-which jd > /dev/null
-if [ $? -ne 0 ]; then
-    echo "JDがみつかりません。"
+if [ ! -x $JD ]; then
+    echo "$JD が存在しないか実行属性がありません。\n install.shの設定を確認してください。"
     exit 1;
-elif [ $JD != $(which jd) ]; then
-    JD=$(which jd)
-    echo "change JD path,  $JD";
 fi
 
 # perl library check.
