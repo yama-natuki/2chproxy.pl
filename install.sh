@@ -67,9 +67,11 @@ cat ${base_dir}/jd.sh | \
 chmod +x  ${bin_dir}/jd.sh
 
 echo "Copying jd.desktop..."
+desktop="$HOME/.local/share/applications"
+test -d $desktop || mkdir --parents $desktop
 cat ${base_dir}/jd.desktop | \
     sed -e "s|^Exec=.*$|Exec=${bin_dir}\/jd.sh|" \
-        > $HOME/.local/share/applications/jd.desktop 
+        > ${desktop}/jd.desktop 
 
 #
 # change jd.conf
