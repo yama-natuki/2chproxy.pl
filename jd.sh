@@ -1,5 +1,5 @@
 #!/bin/sh
-# last updated : 2017/10/27 23:49:53 JST
+# last updated : 2018/01/31 17:38:05 JST
 #
 # 2chproxy.pl を起動してからJDを起動する。
 #
@@ -23,6 +23,12 @@ fi
 
 if [ ! -x ${JD} ]; then
     echo "JDがみつかりません。設定が正しいか確認してください。";
+    exit 1;
+fi
+
+# 二重起動チェック
+if [ $$ != $(pgrep -fo $0) ]; then
+    echo "すでに $(basename $0) が起動しています。"
     exit 1;
 fi
 
