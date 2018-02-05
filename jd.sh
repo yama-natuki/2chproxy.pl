@@ -1,5 +1,5 @@
 #!/bin/sh
-# last updated : 2018/01/31 17:38:05 JST
+# last updated : 2018/02/05 14:23:16 JST
 #
 # 2chproxy.pl を起動してからJDを起動する。
 #
@@ -33,7 +33,8 @@ if [ $$ != $(pgrep -fo $0) ]; then
 fi
 
 pgrep 2chproxy.pl
-if [ $? -ne 0 ]; then
+ret=$?
+if [ $ret -ne 0 ]; then
 	if [ -e ${CONFIG} ]; then
 		${PROXY} --daemon --config ${CONFIG};
 	else
