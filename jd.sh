@@ -1,5 +1,5 @@
 #!/bin/sh
-# last updated : 2018/02/05 14:23:16 JST
+# last updated : 2018/02/05 14:42:26 JST
 #
 # 2chproxy.pl を起動してからJDを起動する。
 #
@@ -13,22 +13,22 @@ CONFIG="$HOME/.2chproxy.yml"
 
 if [  -f ${PROXY} ]; then
 	if [ ! -x ${PROXY} ]; then
-		echo "${PROXY} に実行属性が付与されていません。chmod +x して付与してください。";
+		echo "${PROXY} に実行属性が付与されていません。chmod +x して付与してください。" >&2
 		exit 1;
 	fi
 else
-	echo "${PROXY} が見つかりません。\n pathかファイル名が正しいか確認してください。";
+	echo "${PROXY} が見つかりません。\n pathかファイル名が正しいか確認してください。" >&2
 	exit 1;
 fi
 
 if [ ! -x ${JD} ]; then
-    echo "JDがみつかりません。設定が正しいか確認してください。";
+    echo "JDがみつかりません。設定が正しいか確認してください。" >&2
     exit 1;
 fi
 
 # 二重起動チェック
 if [ $$ != $(pgrep -fo $0) ]; then
-    echo "すでに $(basename $0) が起動しています。"
+    echo "すでに $(basename $0) が起動しています。" >&2
     exit 1;
 fi
 

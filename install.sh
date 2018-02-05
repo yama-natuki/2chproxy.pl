@@ -24,17 +24,17 @@ cookie_hap_bbspink="__cfduid=d;yuki=akari"
 
 
 pgrep jd > /dev/null && {
-    echo "JDを終了させてから実行してください。";
+    echo "JDを終了させてから実行してください。" >&2
     exit 1;
 }
 
 if [ ! -f "$jd_conf" ]; then
-    echo "$jd_conf が見付かりません。一度JDを起動し作成しておいてください。"
+    echo "$jd_conf が見付かりません。一度JDを起動し作成しておいてください。" >&2
     exit 1;
 fi
 
 if [ ! -x $JD ]; then
-    echo "$JD が存在しないか実行属性がありません。\n install.shの設定を確認してください。"
+    echo "$JD が存在しないか実行属性がありません。\n install.shの設定を確認してください。" >&2
     exit 1;
 fi
 
@@ -44,7 +44,7 @@ declare -a module=("HTTP::Daemon" "LWP::UserAgent" "LWP::Protocol::https")
 for i in ${module[@]}; do
     perl -M$i -e '' >& /dev/null
     if [ $? -ne 0 ]; then
-        echo "perl module [$i] is not found.";
+        echo "perl module [$i] is not found." >&2
         exit 1;
     fi
 done
