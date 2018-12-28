@@ -109,6 +109,8 @@ my $PROXY_CONFIG  = {
                                                       # - 認識できない
                                                       #   - 専ブラの置換機能で5chのリンクを2chのに置換する                ->  3
                                                       #   - 専ブラに置換機能が無い/使用しない(串側で置換する)             ->  4
+  ENABLE_REPLACE_BE_AUTH_RESPONSE => 1,               #Beの認証時に302が返ってきたら200に置き換える
+                                                      #0で無効、1で有効
   THREAD_TITLE_SEARCH_URL => '',                      #スレ検索に使うURL
                                                       #スレ検索でのURLの置換が必要な場合はURLを設定する
                                                       #URLを指定しなければ無効
@@ -1655,6 +1657,17 @@ sub scraping_2ch_response() {
   return $response;
 }
 
+sub replace_be_auth_match() {
+  my $request = shift;
+  return $PROXY_CONFIG->{ENABLE_REPLACE_BE_AUTH_RESPONSE} && $request->uri->as_string =~ m|://be\.[25]ch\.net(?::\d+)/test/login\.php|;
+}
+
+sub replace_be_auth_response(){
+  my $response = shift;
+  return if ($response->code ne 302);
+  &print_log(LOG_INFO, 'be response', "detected be auth response\n");
+  $response->code(200);
+}
 
 #
 sub run_proxy() {
@@ -1771,6 +1784,10 @@ sub initialize() {
     match => \&change_access_Nch_match,
     request => \&change_access_Nch_request,
     response_header => \&change_access_Nch_response,
+  );
+  &add_handler(
+    match => \&replace_be_auth_match,
+    response_header => \&replace_be_auth_response,
   );
 }
 
