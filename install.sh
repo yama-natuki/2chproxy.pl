@@ -3,11 +3,33 @@
 # 2chroxy.pl install script.
 #
 
+# install.shの引数---------------------
+# 第1引数でスクリプトのインストール場所を指定する
+# 省略した場合は $HOME/bin にインストールされる
+bin_dir="${1:-$HOME/bin}"
+
+# 第2引数でJDimの場所を指定する
+# 省略した場合はPATHからjdimを探し、見つからなければインストールは実行しない
+jdim_path="${2:-$(command -v jdim 2>/dev/null)}"
+
 # 設定-----------------------------
-#JDの場所
-JD="/usr/bin/jd"
+# JDimの場所
+JD="$jdim_path"
 # jd.confの場所
-jd_conf="$HOME/.jd/jd.conf"
+# install.shは環境変数 JDIM_CACHE によるキャッシュディレクトリの変更を考慮しない
+if test "$JD" = "/snap/bin/jdim" ; then
+  # Snapパッケージ
+  jd_conf="$HOME/snap/jdim/common/.cache/jdim/jd.conf"
+elif "$JD" --version 2>/dev/null | grep -F 'disable-compat-cache-dir' >/dev/null 2>&1 ; then
+  # JDのキャッシュディレクトリが無効化されている場合
+  jd_conf="${XDG_CACHE_HOME:-$HOME/.cache}/jdim/jd.conf"
+elif test -d "$HOME/.jd" ; then
+  # JDのキャッシュディレクトリが残っている場合
+  jd_conf="$HOME/.jd/jd.conf"
+else
+  # JDimのデフォルト
+  jd_conf="${XDG_CACHE_HOME:-$HOME/.cache}/jdim/jd.conf"
+fi
 
 # JDの設定
 # 板一覧を取得するサーバ
@@ -23,18 +45,20 @@ cookie_hap_bbspink="__cfduid=d;yuki=akari"
 
 
 
-pgrep jd > /dev/null && {
-    echo "JDを終了させてから実行してください。" >&2
+pgrep jdim > /dev/null && {
+    echo "JDimを終了させてから実行してください。" >&2
     exit 1;
 }
 
+echo "Find jd.conf... $jd_conf"
 if [ ! -f "$jd_conf" ]; then
-    echo "$jd_conf が見付かりません。一度JDを起動し作成しておいてください。" >&2
+    echo "$jd_conf が見付かりません。一度JDimを起動し作成しておいてください。" >&2
     exit 1;
 fi
 
-if [ ! -x $JD ]; then
-    echo "$JD が存在しないか実行属性がありません。\n install.shの設定を確認してください。" >&2
+echo "Find executable file... $JD"
+if [ ! -x "$JD" ]; then
+    echo "${JD:-jdim} が存在しないか実行属性がありません。\n 実行ファイルを確認してください。" >&2
     exit 1;
 fi
 
@@ -52,12 +76,14 @@ done
 # Set source and target directories
 base_dir=$( cd "$( dirname "$0" )" && pwd )
 
-# if an argument is given it is used to select wich 2chproxy.pl to install
-bin_dir="${1:-$HOME/bin}"
 test -d "$bin_dir" || mkdir --parents "$bin_dir"
 
 echo "Copying 2chproxy.pl to ${bin_dir}"
-cp -p ${base_dir}/2chproxy.pl $bin_dir
+dat_directory="$(dirname $jd_conf)/"
+cat ${base_dir}/2chproxy.pl | \
+  sed -e "s|DAT_DIRECTORY => \"[^\"]\+|DAT_DIRECTORY => \"${dat_directory}|" \
+      > ${bin_dir}/2chproxy.pl
+chmod +x ${bin_dir}/2chproxy.pl
 
 echo "Copying jd.sh to ${bin_dir}"
 cat ${base_dir}/jd.sh | \
@@ -66,12 +92,15 @@ cat ${base_dir}/jd.sh | \
         > ${bin_dir}/jd.sh
 chmod +x  ${bin_dir}/jd.sh
 
-echo "Copying jd.desktop..."
 desktop="$HOME/.local/share/applications"
+echo "Copying jdim.desktop to ${desktop}"
 test -d $desktop || mkdir --parents $desktop
 cat ${base_dir}/jd.desktop | \
     sed -e "s|^Exec=.*$|Exec=${bin_dir}\/jd.sh|" \
-        > ${desktop}/jd.desktop 
+        -e "s|^Icon=jd$|Icon=jdim|" \
+        -e "s|JD|JDim|" \
+        -e "s|gtkmm2|gtkmm|" \
+        > ${desktop}/jdim.desktop
 
 #
 # change jd.conf
