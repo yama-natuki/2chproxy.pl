@@ -28,15 +28,28 @@ ubuntu14.04LTS の場合。
 
 すれば更新されます。
 
-# インストール(JDユーザー向け)
+# インストール(JDimユーザー向け)
 
 　作成されたディレクトリ、 _2chproxy.pl/_ に移動し、
 
 `   ./install.sh`
 
-すれば自動でインストールからJDの設定までしてくれます。
+すれば自動でインストールからJDimの設定までしてくれます。
 
-あとはリログし、JDのアイコンをクリックするだけです。
+- `./install.sh`の第1引数で`2chproxy.pl`のインストール場所を変更できます。（省略した場合は _$HOME/bin_）
+  ```sh
+  # 例
+  ./install.sh "$HOME/.local/bin"
+  # => $HOME/.local/bin/2chproxy.pl, $HOME/.local/bin/jd.sh
+  ```
+- `./install.sh`の第2引数でJDimの実行ファイルを指定できます（省略した場合はPATHからjdimを探す）。
+  実行ファイルが見つからない場合インストールは実行されません。
+  ```sh
+  # 例
+  ./install.sh "$HOME/bin" "/usr/local/bin/jdim"
+  ```
+
+あとはリログし、JDimのアイコンをクリックするだけです。
 
 # 設定
 
@@ -94,7 +107,7 @@ ubuntu14.04LTS の場合。
 
 　また場合によっては高度な設定で 2chにアクセスするときのエージェント名や、2chのクッキーを見直す。
 
-　ディストリ提供のJDがsegfaultで起動しない場合は [こちら](https://github.com/yama-natuki/JD/tree/test) を試してみてください。
+　ディストリ提供のJDがsegfaultで起動しない場合は [こちら](https://github.com/JDimproved/JDim) を試してみてください。
 
 # 変更点
 
