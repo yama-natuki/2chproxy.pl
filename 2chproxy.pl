@@ -516,10 +516,7 @@ sub html2dat() {
         elsif ($PROXY_CONFIG->{ENABLE_2CH_TO_nCH} == 4) {
           $url =~ s|\d+ch\.net|2ch.net|;
         }
-        $replace_url_list{$url} = 1;
-      }
-      foreach my $url (keys(%replace_url_list)) {
-        $var{content} .= "<br> [Replace URL] $url ";
+        $var{content} .= "<br> [Replace URL] $url " unless $replace_url_list{$url}++;
       }
     }
 
