@@ -96,6 +96,8 @@ my $PROXY_CONFIG  = {
                                                       #httpsな2ch/bbspinkのリンクをhttpに変換する
                                                       #専ブラの置換機能で弄れる場合はそちらを使う方が良い
                                                       #0で無効、1で有効
+  ENABLE_ALWAYS_HTTPS_FOR_2CH => 0,                   #プロクシ<->2ch系サイトの通信は常にhttpsで行う
+                                                      #0で無効、1で有効
   ENABLE_2CH_TO_nCH => 1,                             #   *dat書き換え*
                                                       #nch.net<->2ch.netの変換を行う
                                                       #0で無効
@@ -1207,6 +1209,11 @@ sub change_access_Nch_match() {
 sub change_access_Nch_request() {
   my $request = shift;
 
+  if ($PROXY_CONFIG->{ENABLE_ALWAYS_HTTPS_FOR_2CH}) {
+    $request->uri->scheme("https");
+    $request->uri->port(443);
+  }
+
   if ($request->uri->host =~ m@(\.\d+ch\.net|\.bbspink\.com)$@) {
     my $domain  = $1;
     if ($PROXY_CONFIG->{USER_AGENT}) {
@@ -1259,6 +1266,16 @@ sub bbsmenu_tolower_match() {
     return 1;
   }
   return 0;
+}
+
+#ENABLE_ALWAYS_HTTPS_FOR_2CHが1のときはhttpをhttpsに変更する
+sub upgrade_2ch_request() {
+  my $request = shift;
+
+  if ($PROXY_CONFIG->{ENABLE_ALWAYS_HTTPS_FOR_2CH}) {
+    $request->uri->scheme("https");
+    $request->uri->port(443);
+  }
 }
 
 sub bbsmenu_tolower_response() {
@@ -1359,6 +1376,11 @@ sub scraping_2ch_request() {
   my $range;
   my $expected_partial_content;
   my $expected_head_response;
+
+  if ($PROXY_CONFIG->{ENABLE_ALWAYS_HTTPS_FOR_2CH}) {
+    $uri->scheme("https");
+    $uri->port(443);
+  }
 
   if ($uri->as_string =~ m|$PROXY_CONFIG->{DAT_URL}|) {
     $host = $1;
@@ -1768,6 +1790,7 @@ sub initialize() {
   #handlerの設定
   &add_handler(
     match => \&bbsmenu_tolower_match,
+    request => \&upgrade_2ch_request,
     response_done => \&bbsmenu_tolower_response,
   );
   &add_handler(
@@ -1786,6 +1809,7 @@ sub initialize() {
   );
   &add_handler(
     match => \&replace_be_auth_match,
+    request => \&upgrade_2ch_request,
     response_header => \&replace_be_auth_response,
   );
 }
